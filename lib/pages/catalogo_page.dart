@@ -22,7 +22,7 @@ class CatalogoPage extends StatelessWidget {
               onPressed: () {
                 // Implementar funcionalidad para ver el catálogo aquí
               },
-              child: const Text('Ver catálogo de una vez'),
+              child: const Text('Ver catálogo'),
             ),
           ],
         ),
