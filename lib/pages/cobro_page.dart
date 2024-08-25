@@ -206,7 +206,6 @@ class _CobroPageState extends State<CobroPage> {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             const Text(
               'Buscar productos:',
@@ -221,12 +220,22 @@ class _CobroPageState extends State<CobroPage> {
               onChanged: _filtrarProductos,
             ),
             const SizedBox(height: 20),
-            if (_productosFiltrados.isNotEmpty)
-              ..._productosFiltrados.map((producto) => ElevatedButton(
-                onPressed: () => _agregarAlCarrito(producto['nombre'] as String),
-                child: Text('Agregar ${producto['nombre']} - \$${producto['precio']}'),
-              )),
-            const SizedBox(height: 20),
+            Expanded(
+              child: _productosFiltrados.isNotEmpty
+                  ? ListView.builder(
+                itemCount: _productosFiltrados.length,
+                itemBuilder: (context, index) {
+                  final producto = _productosFiltrados[index];
+                  return ElevatedButton(
+                    onPressed: () => _agregarAlCarrito(producto['nombre'] as String),
+                    child: Text('Agregar ${producto['nombre']} - \$${producto['precio']}'),
+                  );
+                },
+              )
+                  : const Center(
+                child: Text('No se encontraron productos'),
+              ),
+            ),
             if (_carrito.isNotEmpty)
               ElevatedButton(
                 onPressed: _mostrarCarrito,
