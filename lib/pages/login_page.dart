@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
-import 'home_page.dart'; // Asegúrate de que la ruta sea correcta
+import 'package:shop_app/pages/home_page.dart'; // Corrige la ruta si es necesario
 
 class LoginPage extends StatefulWidget {
   @override
@@ -13,46 +11,30 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  void _login() async {
+  void _login() {
     if (_formKey.currentState?.validate() ?? false) {
+      // Implementar la lógica de autenticación aquí
       final email = _emailController.text;
       final password = _passwordController.text;
 
-      try {
-        final response = await http.post(
-          Uri.parse('http://bbdmodernaserver.database.windows.net'),
-          // Reemplaza con la URL pública de tu servidor
-          headers: {'Content-Type': 'application/json'},
-          body: jsonEncode({'email': email, 'password': password}),
-        );
-
-        if (response.statusCode == 200) {
-          print(
-              'Conexión exitosa: ${response.body}'); // Muestra el mensaje en la consola si la conexión es exitosa
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Inicio de sesión exitoso')),
-          );
-          Navigator.pushReplacement(
-            context,
-            MaterialPageRoute(builder: (context) => HomePage()),
-          );
-        } else {
-          print(
-              'Error en la conexión: ${response.statusCode} - ${response.body}'); // Muestra el mensaje en la consola si la respuesta no es 200
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-                content: Text('Correo electrónico o contraseña incorrectos')),
-          );
-        }
-      } catch (e) {
-        print(
-            'Error de conexión: $e'); // Muestra el mensaje en la consola si ocurre una excepción
+      // Ejemplo de lógica de autenticación (debes reemplazar esto con tu lógica real)
+      if (email == 'test@example.com' && password == 'password') {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error de conexión: $e')),
+          SnackBar(content: Text('Inicio de sesión exitoso')),
+        );
+        // Navegar a MyHomePage después del inicio de sesión
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(builder: (context) => HomePage()),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Correo electrónico o contraseña incorrectos')),
         );
       }
     }
   }
+
 
   @override
   Widget build(BuildContext context) {
@@ -101,7 +83,7 @@ class _LoginPageState extends State<LoginPage> {
               SizedBox(height: 20),
               ElevatedButton(
                 onPressed: _login,
-                child: Text('Iniciar sesión'),
+                child: Text('Iniciar sesión.'),
               ),
             ],
           ),
