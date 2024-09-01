@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-
+import 'pages/login_page.dart'; // Asegúrate de que esta importación apunte al archivo correcto
+import 'pages/home_page.dart';
 import 'pages/cobro_page.dart';
 import 'pages/catalogo_page.dart';
 import 'pages/inventario_page.dart';
@@ -23,7 +24,11 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // Cambia la ruta inicial a '/login'
-      //Nada
+      initialRoute: '/login',
+      routes: {
+        '/login': (context) => LoginPage(),
+        '/home': (context) => HomePage(),
+      },
     );
   }
 }
