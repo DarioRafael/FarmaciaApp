@@ -1,6 +1,4 @@
 require('dotenv').config();
-
-
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -18,11 +16,10 @@ const config = {
   },
 };
 
-
-app.use(cors({ origin: '*' })); // Permitir solicitudes de cualquier origen
+app.use(cors({ origin: '*' }));
 app.use(express.json());
 
-app.post('/api/ingresar', async (req, res) => {
+app.post('/api/v1/ingresar', async (req, res) => {
   const { email, password } = req.body;
   console.log('Petición de inicio de sesión recibida:', { email, password });
 
@@ -45,6 +42,9 @@ app.post('/api/ingresar', async (req, res) => {
   }
 });
 
+// Añadir esta línea para iniciar el servidor
+app.listen(port, () => {
+  console.log(`Servidor en ejecución en el puerto ${port}`);
+});
 
-// Exportar el servidor para que Vercel lo pueda usar
 module.exports = app;
