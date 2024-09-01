@@ -1,7 +1,8 @@
 const express = require('express');
 const sql = require('mssql');
+const cors = require('cors');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 const config = {
   user: 'adminbd',
@@ -9,28 +10,24 @@ const config = {
   server: 'bbdmodernaserver.database.windows.net',
   database: 'bbd-moderna',
   options: {
-    encrypt: true, // Usa esto si estás en Azure
+    encrypt: true,
     connectTimeout: 30000,
   },
 };
 
+app.use(cors({ origin: '*' })); // Permitir solicitudes de cualquier origen
 app.use(express.json());
 
-app.post('/api/login', async (req, res) => {
+app.post('/api/ingresar', async (req, res) => {
   const { email, password } = req.body;
   console.log('Petición de inicio de sesión recibida:', { email, password });
 
   try {
-    // Conectar a la base de datos
     const pool = await sql.connect(config);
-
-    // Crear una solicitud
     const request = pool.request();
-
-    // Realizar la consulta con los nombres de columnas correctos
     const result = await request
-      .input('correo', sql.VarChar, email)  // Usar 'correo' para el email
-      .input('contraseña', sql.VarChar, password)  // Usar 'contraseña' para la contraseña
+      .input('correo', sql.VarChar, email)
+      .input('contraseña', sql.VarChar, password)
       .query('SELECT * FROM Trabajadores WHERE correo = @correo AND contraseña = @contraseña');
 
     if (result.recordset.length > 0) {
@@ -44,6 +41,6 @@ app.post('/api/login', async (req, res) => {
   }
 });
 
-app.listen(port, () => {
-  console.log(`Server is running on http://localhost:${port}`);
-});
+
+// Exportar el servidor para que Vercel lo pueda usar
+module.exports = app;
