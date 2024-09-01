@@ -1,13 +1,13 @@
-
+require('dotenv').config();
 const sql = require('mssql');
 
 const config = {
-  user: 'adminbd',
-  password: 'Nintendo7',
-  server: 'bbdmodernaserver.database.windows.net',
-  database: 'bbd-moderna',
+user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_DATABASE,
   options: {
-    encrypt: true, // Use this if you're on Windows Azure
+    encrypt: true,
     connectTimeout: 30000,
   },
 };
