@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import 'package:shop_app/pages/home_page.dart'; // Corrige la ruta si es necesario
 
 class LoginPage extends StatefulWidget {
@@ -11,18 +13,32 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  void _login() {
+  Future<void> _login() async {
     if (_formKey.currentState?.validate() ?? false) {
-      // Implementar la lógica de autenticación aquí
       final email = _emailController.text;
       final password = _passwordController.text;
 
-      // Ejemplo de lógica de autenticación (debes reemplazar esto con tu lógica real)
-      if (email == 'test@example.com' && password == 'password') {
+      print('Enviando solicitud de inicio de sesión con email: $email y password: $password');
+
+
+      final response = await http.post(
+        Uri.parse('https://moderna-shop-app.vercel.app/#/login'), // Replace with your actual backend URL
+        headers: <String, String>{
+          'Content-Type': 'application/json; charset=UTF-8',
+        },
+        body: jsonEncode(<String, String>{
+          'email': email,
+          'password': password,
+        }),
+      );
+
+      print('Respuesta del servidor: ${response.statusCode} - ${response.body}');
+
+
+      if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text('Inicio de sesión exitoso')),
         );
-        // Navegar a MyHomePage después del inicio de sesión
         Navigator.pushReplacement(
           context,
           MaterialPageRoute(builder: (context) => HomePage()),
@@ -34,7 +50,6 @@ class _LoginPageState extends State<LoginPage> {
       }
     }
   }
-
 
   @override
   Widget build(BuildContext context) {
