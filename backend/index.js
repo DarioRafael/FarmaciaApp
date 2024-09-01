@@ -1,15 +1,15 @@
 const express = require('express');
 const sql = require('mssql');
 const app = express();
-const port = process.env.PORT || 3000;
+const port = 3000;
 
 const config = {
-  user: process.env.DB_USER,
-  password: process.env.DB_PASS,
-  server: process.env.DB_SERVER,
-  database: process.env.DB_DATABASE,
+  user: 'adminbd',
+  password: 'Nintendo7',
+  server: 'bbdmodernaserver.database.windows.net',
+  database: 'bbd-moderna',
   options: {
-    encrypt: true,
+    encrypt: true, // Usa esto si estás en Azure
     connectTimeout: 30000,
   },
 };
@@ -21,11 +21,17 @@ app.post('/api/login', async (req, res) => {
   console.log('Petición de inicio de sesión recibida:', { email, password });
 
   try {
-    await sql.connect(config);
-    const result = await sql.query`SELECT * FROM Trabajadores WHERE email = @email AND password = @password`, {
-      email: email,
-      password: password
-    };
+    // Conectar a la base de datos
+    const pool = await sql.connect(config);
+
+    // Crear una solicitud
+    const request = pool.request();
+
+    // Realizar la consulta con los nombres de columnas correctos
+    const result = await request
+      .input('correo', sql.VarChar, email)  // Usar 'correo' para el email
+      .input('contraseña', sql.VarChar, password)  // Usar 'contraseña' para la contraseña
+      .query('SELECT * FROM Trabajadores WHERE correo = @correo AND contraseña = @contraseña');
 
     if (result.recordset.length > 0) {
       res.status(200).send('Login successful');
