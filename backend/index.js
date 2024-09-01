@@ -1,3 +1,6 @@
+require('dotenv').config();
+
+
 const express = require('express');
 const sql = require('mssql');
 const cors = require('cors');
@@ -5,15 +8,16 @@ const app = express();
 const port = process.env.PORT || 3000;
 
 const config = {
-  user: 'adminbd',
-  password: 'Nintendo7',
-  server: 'bbdmodernaserver.database.windows.net',
-  database: 'bbd-moderna',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_DATABASE,
   options: {
     encrypt: true,
     connectTimeout: 30000,
   },
 };
+
 
 app.use(cors({ origin: '*' })); // Permitir solicitudes de cualquier origen
 app.use(express.json());
