@@ -1,15 +1,15 @@
 const express = require('express');
 const sql = require('mssql');
 const app = express();
-const port = 3000;
+const port = process.env.PORT || 3000;
 
 const config = {
-  user: 'adminbd',
-  password: 'Nintendo7',
-  server: 'bbdmodernaserver.database.windows.net',
-  database: 'bbd-moderna',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASS,
+  server: process.env.DB_SERVER,
+  database: process.env.DB_DATABASE,
   options: {
-    encrypt: true, // Use this if you're on Windows Azure
+    encrypt: true,
     connectTimeout: 30000,
   },
 };
@@ -22,7 +22,10 @@ app.post('/api/login', async (req, res) => {
 
   try {
     await sql.connect(config);
-    const result = await sql.query`SELECT * FROM Trabajadores WHERE email = ${email} AND password = ${password}`;
+    const result = await sql.query`SELECT * FROM Trabajadores WHERE email = @email AND password = @password`, {
+      email: email,
+      password: password
+    };
 
     if (result.recordset.length > 0) {
       res.status(200).send('Login successful');
