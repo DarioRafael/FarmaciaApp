@@ -24,11 +24,7 @@ class MyApp extends StatelessWidget {
         useMaterial3: true,
       ),
       // Cambia la ruta inicial a '/login'
-      initialRoute: '/login',
-      routes: {
-        '/login': (context) => LoginPage(),
-        '/home': (context) => HomePage(),
-      },
+
     );
   }
 }
