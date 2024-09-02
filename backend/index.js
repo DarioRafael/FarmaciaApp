@@ -5,6 +5,9 @@ const cors = require('cors');
 const app = express();
 const port = process.env.PORT || 3000;
 
+console.log('La aplicación ha iniciado correctamente.');
+
+
 const config = {
   user: process.env.DB_USER,
   password: process.env.DB_PASSWORD,
