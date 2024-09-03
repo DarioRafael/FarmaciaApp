@@ -22,8 +22,7 @@ class _LoginPageState extends State<LoginPage> {
 
 
       final response = await http.post(
-        Uri.parse('https://moderna-shop-app.vercel.app/api/v1/ingresar'), // Replace with your actual backend URL
-        headers: <String, String>{
+        Uri.parse('https://moderna-shop-app.vercel.app/api/v1/ingresar'),        headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
         body: jsonEncode(<String, String>{
