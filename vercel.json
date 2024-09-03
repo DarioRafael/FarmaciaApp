@@ -8,7 +8,7 @@
   ],
   "routes": [
     {
-      "src": "/api/v1/ingresar",
+      "src": "/api/(.*)",
       "dest": "/backend/index.js"
     }
   ]
