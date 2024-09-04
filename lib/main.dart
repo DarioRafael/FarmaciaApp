@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart';
 import 'pages/login_page.dart'; // Asegúrate de que esta importación apunte al archivo correcto
 import 'pages/home_page.dart';
 import 'pages/cobro_page.dart';
@@ -8,6 +9,7 @@ import 'pages/reportes_page.dart';
 
 
 void main() {
+  setUrlStrategy(PathUrlStrategy());
   runApp(const MyApp());
 }
 
