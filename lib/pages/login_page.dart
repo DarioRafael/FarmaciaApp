@@ -18,7 +18,8 @@ class _LoginPageState extends State<LoginPage> {
       final email = _emailController.text;
       final password = _passwordController.text;
 
-      print('Enviando solicitud de inicio de sesión con email: $email y password: $password');
+      print(
+          'Enviando solicitud de inicio de sesión con email: $email y password: $password');
 
       final response = await http.post(
         Uri.parse('https://moderna-server.vercel.app/api/v1/ingresar'),
@@ -31,7 +32,8 @@ class _LoginPageState extends State<LoginPage> {
         }),
       );
 
-      print('Respuesta del servidor: ${response.statusCode} - ${response.body}');
+      print(
+          'Respuesta del servidor: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -43,7 +45,8 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Correo electrónico o contraseña incorrectos')),
+          SnackBar(
+              content: Text('Correo electrónico o contraseña incorrectos')),
         );
       }
     }
@@ -56,7 +59,9 @@ class _LoginPageState extends State<LoginPage> {
         backgroundColor: Color(0xFF004D40), // Color hexadecimal
         title: Text(
           'Inicio de sesión',
-          style: TextStyle(fontWeight: FontWeight.bold),
+          style: TextStyle(
+              fontWeight: FontWeight.bold,
+              color: Color(0xFFFFFFFF)),
         ),
       ),
       body: Center(
@@ -87,20 +92,23 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _emailController,
                       decoration: InputDecoration(
                         labelText: 'Correo electrónico',
-                        prefixIcon: Icon(Icons.email, color: Color(0xFF004D40)), // Color hexadecimal
+                        prefixIcon: Icon(Icons.email, color: Color(0xFF004D40)),
+                        // Color hexadecimal
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Color(0xFF004D40)), // Color hexadecimal
+                          borderSide: BorderSide(
+                              color: Color(0xFF004D40)), // Color hexadecimal
                         ),
                       ),
                       keyboardType: TextInputType.emailAddress,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Por favor ingresa tu correo electrónico';
-                        } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                        } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
+                            .hasMatch(value)) {
                           return 'Por favor ingresa un correo electrónico válido';
                         }
                         return null;
@@ -111,13 +119,15 @@ class _LoginPageState extends State<LoginPage> {
                       controller: _passwordController,
                       decoration: InputDecoration(
                         labelText: 'Contraseña',
-                        prefixIcon: Icon(Icons.lock, color: Color(0xFF004D40)), // Color hexadecimal
+                        prefixIcon: Icon(Icons.lock, color: Color(0xFF004D40)),
+                        // Color hexadecimal
                         border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
                         focusedBorder: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(color: Color(0xFF004D40)), // Color hexadecimal
+                          borderSide: BorderSide(
+                              color: Color(0xFF004D40)), // Color hexadecimal
                         ),
                       ),
                       obscureText: true,
@@ -137,10 +147,14 @@ class _LoginPageState extends State<LoginPage> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                         padding: EdgeInsets.symmetric(vertical: 14),
+                        minimumSize: Size(150, 50),
                       ),
                       child: Text(
                         'Iniciar sesión',
-                        style: TextStyle(fontSize: 16),
+                        style:
+                            TextStyle(
+                                fontSize: 16,
+                                color: Color(0xFFFFFFFF)),
                       ),
                     ),
                   ],
