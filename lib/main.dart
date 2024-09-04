@@ -12,9 +12,9 @@ import 'pages/reportes_page.dart';
 
 
 void main() {
-  if (kIsWeb) {
-    web.setUrlStrategy(web.PathUrlStrategy());
-  }
+ // if (kIsWeb) {
+  //  web.setUrlStrategy(web.PathUrlStrategy());
+ // }
   runApp(const MyApp());
 }
 
