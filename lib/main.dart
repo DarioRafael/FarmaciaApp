@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter_web_plugins/flutter_web_plugins.dart' if (dart.library.io) 'package:flutter/material.dart' as web;
+
 import 'pages/login_page.dart'; // Asegúrate de que esta importación apunte al archivo correcto
 import 'pages/home_page.dart';
 import 'pages/cobro_page.dart';
@@ -9,12 +12,14 @@ import 'pages/reportes_page.dart';
 
 
 void main() {
-  setUrlStrategy(PathUrlStrategy());
+  if (kIsWeb) {
+    web.setUrlStrategy(web.PathUrlStrategy());
+  }
   runApp(const MyApp());
 }
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+  const MyApp({Key? key}) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
