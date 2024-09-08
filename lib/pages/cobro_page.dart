@@ -20,31 +20,38 @@ class _CobroPageState extends State<CobroPage> {
 
   final Map<String, int> _carrito = {};
   List<Map<String, dynamic>> _productosFiltrados = [];
+  String _query = '';
+
+  @override
+  void initState() {
+    super.initState();
+    _productosFiltrados = _productos; // Inicializa la lista filtrada
+  }
 
   void _mostrarNotificacion(String mensaje) {
     final overlay = Overlay.of(context);
     final overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: 50, // Ajusta esta posición según lo necesario
-        left: 0,
-        right: 0,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-            margin: const EdgeInsets.symmetric(horizontal: 20),
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              mensaje,
-              style: TextStyle(color: Colors.white),
-              textAlign: TextAlign.center,
+      builder: (context) =>
+          Positioned(
+            top: MediaQuery.of(context).size.height * 0.1,
+            left: MediaQuery.of(context).size.width * 0.1,
+            right: MediaQuery.of(context).size.width * 0.1,
+            child: Material(
+              color: Colors.transparent,
+              child: Container(
+                padding: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width * 0.05, vertical: MediaQuery.of(context).size.height * 0.02),
+                decoration: BoxDecoration(
+                  color: Colors.black,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  mensaje,
+                  style: TextStyle(color: Colors.white),
+                  textAlign: TextAlign.center,
+                ),
+              ),
             ),
           ),
-        ),
-      ),
     );
 
     overlay.insert(overlayEntry);
@@ -63,6 +70,8 @@ class _CobroPageState extends State<CobroPage> {
         _carrito[nombreProducto] = 1;
         _mostrarNotificacion('Agregado $nombreProducto al carrito.');
       }
+      _productosFiltrados = _productos.where((producto) =>
+          producto['nombre'].toLowerCase().contains(_query.toLowerCase())).toList(); // Actualiza la lista filtrada
     });
   }
 
@@ -94,7 +103,8 @@ class _CobroPageState extends State<CobroPage> {
   double _calcularTotal() {
     double total = 0.0;
     _carrito.forEach((nombre, cantidad) {
-      final precio = _productos.firstWhere((producto) => producto['nombre'] == nombre)['precio'] as double;
+      final precio = _productos.firstWhere((producto) =>
+      producto['nombre'] == nombre)['precio'] as double;
       total += precio * cantidad;
     });
     return total;
@@ -106,8 +116,9 @@ class _CobroPageState extends State<CobroPage> {
 
   void _filtrarProductos(String query) {
     setState(() {
+      _query = query;
       if (query.isEmpty) {
-        _productosFiltrados = [];
+        _productosFiltrados = _productos;
       } else {
         _productosFiltrados = _productos.where((producto) {
           final nombreProducto = producto['nombre'] as String;
@@ -120,19 +131,26 @@ class _CobroPageState extends State<CobroPage> {
   void _mostrarCarrito() {
     showModalBottomSheet(
       context: context,
+      isScrollControlled: true, // Permite controlar la altura del modal
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            return Padding(
-              padding: const EdgeInsets.all(16.0),
+            final hayProductos = _carrito.isNotEmpty;
+
+            return Container(
+              height: MediaQuery.of(context).size.height, // Ocupa toda la altura de la pantalla
+              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
               child: Column(
-                mainAxisSize: MainAxisSize.min,
                 children: [
                   Text(
                     'Carrito de Compras',
-                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.05,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF004D40),
+                    ),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                   Expanded(
                     child: ListView(
                       children: _carrito.entries.map((entry) {
@@ -144,7 +162,8 @@ class _CobroPageState extends State<CobroPage> {
                               Expanded(
                                 child: DropdownButton<int>(
                                   value: entry.value,
-                                  items: List.generate(10, (index) => index + 1).map((cantidad) {
+                                  items: List.generate(10, (index) => index + 1)
+                                      .map((cantidad) {
                                     return DropdownMenuItem<int>(
                                       value: cantidad,
                                       child: Text('$cantidad'),
@@ -159,10 +178,10 @@ class _CobroPageState extends State<CobroPage> {
                                   },
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              SizedBox(width: MediaQuery.of(context).size.width * 0.02),
                               Text('Precio total: \$${producto['precio'] * entry.value}'),
                               IconButton(
-                                icon: Icon(Icons.delete),
+                                icon: Icon(Icons.delete, color: Color(0xFF004D40)),
                                 onPressed: () {
                                   setState(() {
                                     _eliminarDelCarrito(entry.key);
@@ -175,19 +194,46 @@ class _CobroPageState extends State<CobroPage> {
                       }).toList(),
                     ),
                   ),
-                  const SizedBox(height: 20),
-                  Text('Unidades totales: ${_contarUnidades()}'),
-                  Text('Total a pagar: \$${_calcularTotal()}'),
-                  const SizedBox(height: 20),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  Text('Unidades totales: ${_contarUnidades()}',
+                      style: TextStyle(color: Color(0xFF004D40))),
+                  Text('Total a pagar: \$${_calcularTotal()}',
+                      style: TextStyle(color: Color(0xFF004D40))),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
                         _vaciarCarrito();
                       });
                     },
-                    child: Text('Vaciar carrito'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF004D40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                    ),
+                    child: Text('Vaciar carrito',
+                        style: TextStyle(color: Colors.white)),
                   ),
-                  const SizedBox(height: 20),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  if (hayProductos)
+                    ElevatedButton(
+                      onPressed: () {
+                        _mostrarConfirmacionCompra();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF004D40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                        minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                      ),
+                      child: Text('Confirmar venta',
+                          style: TextStyle(color: Colors.white)),
+                    ),
                 ],
               ),
             );
@@ -197,53 +243,208 @@ class _CobroPageState extends State<CobroPage> {
     );
   }
 
+
+  void _mostrarConfirmacionCompra() {
+    showModalBottomSheet(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            return Padding(
+              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Confirmación de venta',
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.05,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF004D40),
+                    ),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  // Resumen de productos
+                  Expanded(
+                    child: ListView(
+                      children: _carrito.entries.map((entry) {
+                        final producto = _productos.firstWhere((producto) =>
+                        producto['nombre'] == entry.key);
+                        final total = producto['precio'] * entry.value;
+                        return ListTile(
+                          title: Text('${entry.key}'),
+                          subtitle: Text(
+                              'Cantidad: ${entry.value} x Precio: \$${producto['precio']}'),
+                          trailing: Text('Subtotal: \$${total.toStringAsFixed(2)}'),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  Text(
+                    'Total a pagar: \$${_calcularTotal().toStringAsFixed(2)}',
+                    style: TextStyle(color: Color(0xFF004D40)),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context); // Cierra la hoja modal
+                      _mostrarAprobado(); // Muestra el mensaje de aprobación
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF004D40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                    ),
+                    child: Text('Confirmar venta', style: TextStyle(color: Colors.white)),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.pop(context); // Cierra la hoja modal
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF004D40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                    ),
+                    child: Text('Cancelar', style: TextStyle(color: Colors.white)),
+                  ),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+
+  void _mostrarAprobado() {
+    showDialog(
+      context: context,
+      barrierDismissible: false, // Evita que el usuario cierre el diálogo tocando fuera de él
+      builder: (BuildContext context) {
+        return WillPopScope(
+          onWillPop: () async => false, // Evita que el diálogo se cierre con el botón de retroceso
+          child: Scaffold(
+            backgroundColor: Colors.transparent,
+            body: Center(
+              child: Container(
+                padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.05),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(8),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      spreadRadius: 5,
+                      blurRadius: 7,
+                      offset: Offset(0, 3),
+                    ),
+                  ],
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      '¡Venta realizada con éxito!',
+                      style: TextStyle(
+                        fontSize: MediaQuery.of(context).size.width * 0.07,
+                        fontWeight: FontWeight.bold,
+                        color: Color(0xFF004D40),
+                      ),
+                      textAlign: TextAlign.center,
+                    ),
+                    SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                    ElevatedButton(
+                      onPressed: () {
+                        Navigator.of(context).pop(); // Cierra el diálogo
+                        Navigator.of(context).pop(); // Regresa a la pantalla inicial de cobro
+                        _vaciarCarrito(); // Vacía el carrito
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF004D40),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                        minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                      ),
+                      child: Text('Aceptar', style: TextStyle(color: Colors.white)),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cobro de Productos'),
+        title: Text('Cobro', style: TextStyle(color: Colors.white),),
+        backgroundColor: Color(0xFF004D40),
       ),
       body: Padding(
-        padding: const EdgeInsets.all(16.0),
+        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
         child: Column(
           children: [
-            const Text(
-              'Buscar productos:',
-              style: TextStyle(fontSize: 18),
-            ),
-            const SizedBox(height: 10),
             TextField(
-              decoration: const InputDecoration(
+              decoration: InputDecoration(
+                hintText: 'Buscar productos...',
                 border: OutlineInputBorder(),
-                hintText: 'Escribe el nombre del producto',
               ),
               onChanged: _filtrarProductos,
             ),
-            const SizedBox(height: 20),
+            SizedBox(height: MediaQuery.of(context).size.height * 0.02),
             Expanded(
-              child: _productosFiltrados.isNotEmpty
-                  ? ListView.builder(
+              child: ListView.builder(
                 itemCount: _productosFiltrados.length,
                 itemBuilder: (context, index) {
                   final producto = _productosFiltrados[index];
-                  return ElevatedButton(
-                    onPressed: () => _agregarAlCarrito(producto['nombre'] as String),
-                    child: Text('Agregar ${producto['nombre']} - \$${producto['precio']}'),
+                  final nombreProducto = producto['nombre'];
+                  final precioProducto = producto['precio'];
+                  return ListTile(
+                    title: Text(nombreProducto),
+                    subtitle: Text('Precio: \$${precioProducto}'),
+                    trailing: ElevatedButton(
+                      onPressed: () => _agregarAlCarrito(nombreProducto),
+                      child: Text('Agregar'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Color(0xFF004D40),
+                        foregroundColor: Colors.white,
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02)
+                      ),
+                    ),
                   );
                 },
-              )
-                  : const Center(
-                child: Text('No se encontraron productos'),
               ),
             ),
-            if (_carrito.isNotEmpty)
-              ElevatedButton(
-                onPressed: _mostrarCarrito,
-                child: const Text('Ver carrito'),
-              ),
           ],
         ),
       ),
+      floatingActionButton: _carrito.isNotEmpty
+          ? FloatingActionButton(
+        onPressed: _mostrarCarrito,
+        backgroundColor: Color(0xFF004D40),
+        foregroundColor: Colors.white,
+        child: Icon(Icons.shopping_cart),
+      )
+          : null,
     );
   }
 }
