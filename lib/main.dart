@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
-
 import 'package:flutter/foundation.dart';
-import 'package:flutter_web_plugins/flutter_web_plugins.dart' if (dart.library.io) 'package:flutter/material.dart' as web;
 
 import 'pages/login_page.dart'; // Asegúrate de que esta importación apunte al archivo correcto
 import 'pages/home_page.dart';
@@ -10,11 +8,10 @@ import 'pages/catalogo_page.dart';
 import 'pages/inventario_page.dart';
 import 'pages/reportes_page.dart';
 
-
+//
 void main() {
- // if (kIsWeb) {
-  //  web.setUrlStrategy(web.PathUrlStrategy());
- // }
+
+
   runApp(const MyApp());
 }
 

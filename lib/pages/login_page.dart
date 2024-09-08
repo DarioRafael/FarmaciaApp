@@ -80,7 +80,7 @@ class _LoginPageState extends State<LoginPage> {
                   mainAxisSize: MainAxisSize.min,
                   children: [
                     Text(
-                      'Bienvenido a La Moderna',
+                      'Bienvenido a La Modelo',
                       style: TextStyle(
                         fontSize: 22,
                         fontWeight: FontWeight.bold,
