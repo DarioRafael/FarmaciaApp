@@ -9,6 +9,17 @@ class HomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // Obtener el ancho de la pantalla para hacer ajustes responsivos
+    final screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = 2; // Valor predeterminado para pantallas pequeñas
+
+    // Ajustar número de columnas según el ancho de la pantalla
+    if (screenWidth > 1200) {
+      crossAxisCount = 4;
+    } else if (screenWidth > 800) {
+      crossAxisCount = 3;
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bienvenido'),
@@ -16,7 +27,7 @@ class HomePage extends StatelessWidget {
       body: Padding(
         padding: const EdgeInsets.all(16.0),
         child: GridView.count(
-          crossAxisCount: 2, // Número de columnas
+          crossAxisCount: crossAxisCount, // Número dinámico de columnas
           crossAxisSpacing: 10.0,
           mainAxisSpacing: 10.0,
           children: [
@@ -31,6 +42,10 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildGridTile(BuildContext context, String title, IconData icon, Widget page) {
+    // Ajustar el tamaño del icono basado en el ancho de la pantalla
+    final screenWidth = MediaQuery.of(context).size.width;
+    double iconSize = screenWidth > 800 ? 64.0 : 48.0; // Iconos más grandes en pantallas grandes
+
     return GestureDetector(
       onTap: () {
         Navigator.push(
@@ -43,7 +58,7 @@ class HomePage extends StatelessWidget {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(icon, size: 48.0),
+            Icon(icon, size: iconSize),
             const SizedBox(height: 10.0),
             Text(title, style: const TextStyle(fontSize: 18.0)),
           ],
