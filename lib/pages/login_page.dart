@@ -113,6 +113,13 @@ class _LoginPageState extends State<LoginPage> {
                         }
                         return null;
                       },
+                      onChanged: (value) {
+                        // Elimina los espacios en tiempo real
+                        _emailController.text = value.replaceAll(' ', '');
+                        _emailController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: _emailController.text.length),
+                        );
+                      },
                     ),
                     SizedBox(height: 16),
                     TextFormField(
@@ -152,9 +159,9 @@ class _LoginPageState extends State<LoginPage> {
                       child: Text(
                         'Iniciar sesión',
                         style:
-                            TextStyle(
-                                fontSize: 16,
-                                color: Color(0xFFFFFFFF)),
+                        TextStyle(
+                            fontSize: 16,
+                            color: Color(0xFFFFFFFF)),
                       ),
                     ),
                   ],
