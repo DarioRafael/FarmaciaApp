@@ -150,7 +150,7 @@ class _CobroPageState extends State<CobroPage> {
                   Text(
                     'Carrito de Compras',
                     style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.05,
+                      fontSize: MediaQuery.of(context).size.width * 0.05 < 24 ? MediaQuery.of(context).size.width * 0.05 : 24,
                       fontWeight: FontWeight.bold,
                       color: Color(0xFF004D40),
                     ),
