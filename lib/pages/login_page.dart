@@ -13,13 +13,15 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
+  // FocusNode para el campo de contraseña
+  final _passwordFocusNode = FocusNode();
+
   Future<void> _login() async {
     if (_formKey.currentState?.validate() ?? false) {
       final email = _emailController.text;
       final password = _passwordController.text;
 
-      print(
-          'Enviando solicitud de inicio de sesión con email: $email y password: $password');
+      print('Enviando solicitud de inicio de sesión con email: $email y password: $password');
 
       final response = await http.post(
         Uri.parse('https://moderna-server.vercel.app/api/v1/ingresar'),
@@ -32,8 +34,7 @@ class _LoginPageState extends State<LoginPage> {
         }),
       );
 
-      print(
-          'Respuesta del servidor: ${response.statusCode} - ${response.body}');
+      print('Respuesta del servidor: ${response.statusCode} - ${response.body}');
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -45,11 +46,16 @@ class _LoginPageState extends State<LoginPage> {
         );
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-              content: Text('Correo electrónico o contraseña incorrectos')),
+          SnackBar(content: Text('Correo electrónico o contraseña incorrectos')),
         );
       }
     }
+  }
+
+  @override
+  void dispose() {
+    _passwordFocusNode.dispose(); // Limpia el FocusNode
+    super.dispose();
   }
 
   @override
@@ -108,8 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Por favor ingresa tu correo electrónico';
-                        } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+')
-                            .hasMatch(value)) {
+                        } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
                           return 'Por favor ingresa un correo electrónico válido';
                         }
                         return null;
@@ -120,6 +125,10 @@ class _LoginPageState extends State<LoginPage> {
                         _emailController.selection = TextSelection.fromPosition(
                           TextPosition(offset: _emailController.text.length),
                         );
+                      },
+                      // Configurar el FocusNode para el campo de contraseña
+                      onFieldSubmitted: (_) {
+                        FocusScope.of(context).requestFocus(_passwordFocusNode);
                       },
                     ),
                     SizedBox(height: 16),
@@ -139,11 +148,16 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       obscureText: true,
+                      focusNode: _passwordFocusNode,
                       validator: (value) {
                         if (value == null || value.isEmpty) {
                           return 'Por favor ingresa tu contraseña';
                         }
                         return null;
+                      },
+                      // Llama a _login cuando el usuario presiona "Enter"
+                      onFieldSubmitted: (_) {
+                        _login();
                       },
                     ),
                     SizedBox(height: 20),
@@ -159,8 +173,7 @@ class _LoginPageState extends State<LoginPage> {
                       ),
                       child: Text(
                         'Iniciar sesión',
-                        style:
-                        TextStyle(
+                        style: TextStyle(
                             fontSize: 16,
                             color: Color(0xFFFFFFFF)),
                       ),

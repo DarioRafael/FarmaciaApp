@@ -362,7 +362,6 @@ class _CobroPageState extends State<CobroPage> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check_circle, color: Color(0xFF004D40), size: MediaQuery.of(context).size.width * 0.1),
                         SizedBox(width: MediaQuery.of(context).size.width * 0.02),
                         Text(
                           '¡Venta realizada con éxito!',
