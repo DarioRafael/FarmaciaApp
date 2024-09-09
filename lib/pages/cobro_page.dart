@@ -330,6 +330,8 @@ class _CobroPageState extends State<CobroPage> {
       },
     );
   }
+
+
   void _mostrarAprobado() {
     showDialog(
       context: context,
@@ -357,14 +359,21 @@ class _CobroPageState extends State<CobroPage> {
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Text(
-                      '¡Venta realizada con éxito!',
-                      style: TextStyle(
-                        fontSize: MediaQuery.of(context).size.width * 0.07,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004D40),
-                      ),
-                      textAlign: TextAlign.center,
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.check_circle, color: Color(0xFF004D40), size: MediaQuery.of(context).size.width * 0.1),
+                        SizedBox(width: MediaQuery.of(context).size.width * 0.02),
+                        Text(
+                          '¡Venta realizada con éxito!',
+                          style: TextStyle(
+                            fontSize: MediaQuery.of(context).size.width * 0.05 < 20 ? MediaQuery.of(context).size.width * 0.05 : 20,
+                            fontWeight: FontWeight.bold,
+                            color: Color(0xFF004D40),
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                      ],
                     ),
                     SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                     ElevatedButton(

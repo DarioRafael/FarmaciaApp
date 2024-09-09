@@ -76651,7 +76651,7 @@ A.acp.prototype={
 $1(a){return new A.lG(new A.aco(this.a),null)},
 $S:157}
 A.aco.prototype={
-$2(a,b){var s,r,q,p,o,n,m,l=null,k=4278209856,j=this.a,i=j.e,h=i.a,g=t.w,f=A.ar(a,l,g).w,e=A.ar(a,l,g).w.a.a*0.04,d=A.ar(a,l,g).w.a.a*0.05<24?A.ar(a,l,g).w.a.a*0.05:24
+$2(a,b){var s,r,q,p,o,n,m,l=null,k=4278209856,j=this.a,i=j.e,h=i.a,g=t.w,f=A.ar(a,l,g).w,e=A.ar(a,l,g).w.a.a*0.04,d=A.ar(a,l,g).w.a.a*0.05<20?A.ar(a,l,g).w.a.a*0.05:20
 d=A.bG("Carrito de Compras",l,l,l,A.cE(l,l,new A.m(k),l,l,l,l,l,l,l,l,d,l,l,B.bn,l,l,!0,l,l,l,l,l,l,l,l),l,l)
 s=A.cq(l,A.ar(a,l,g).w.a.b*0.02,l)
 i=A.Gc(A.alL(i.geh().fq(0,new A.acl(j,b,a),t.hT).eW(0),l,l,!1))
