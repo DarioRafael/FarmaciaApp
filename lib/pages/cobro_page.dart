@@ -31,27 +31,28 @@ class _CobroPageState extends State<CobroPage> {
   void _mostrarNotificacion(String mensaje) {
     final overlay = Overlay.of(context);
     final overlayEntry = OverlayEntry(
-      builder: (context) =>
-          Positioned(
-            top: MediaQuery.of(context).size.height * 0.1,
-            left: MediaQuery.of(context).size.width * 0.1,
-            right: MediaQuery.of(context).size.width * 0.1,
-            child: Material(
-              color: Colors.transparent,
-              child: Container(
-                padding: EdgeInsets.symmetric(horizontal: MediaQuery.of(context).size.width * 0.05, vertical: MediaQuery.of(context).size.height * 0.02),
-                decoration: BoxDecoration(
-                  color: Colors.black,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Text(
-                  mensaje,
-                  style: TextStyle(color: Colors.white),
-                  textAlign: TextAlign.center,
-                ),
-              ),
+      builder: (context) => Positioned(
+        top: MediaQuery.of(context).size.height * 0.1,
+        left: MediaQuery.of(context).size.width * 0.1,
+        right: MediaQuery.of(context).size.width * 0.1,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: EdgeInsets.symmetric(
+                horizontal: MediaQuery.of(context).size.width * 0.05,
+                vertical: MediaQuery.of(context).size.height * 0.02),
+            decoration: BoxDecoration(
+              color: Colors.black,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              mensaje,
+              style: TextStyle(color: Colors.white),
+              textAlign: TextAlign.center,
             ),
           ),
+        ),
+      ),
     );
 
     overlay.insert(overlayEntry);
@@ -70,8 +71,11 @@ class _CobroPageState extends State<CobroPage> {
         _carrito[nombreProducto] = 1;
         _mostrarNotificacion('Agregado $nombreProducto al carrito.');
       }
-      _productosFiltrados = _productos.where((producto) =>
-          producto['nombre'].toLowerCase().contains(_query.toLowerCase())).toList(); // Actualiza la lista filtrada
+      _productosFiltrados = _productos
+          .where((producto) => producto['nombre']
+          .toLowerCase()
+          .contains(_query.toLowerCase()))
+          .toList(); // Actualiza la lista filtrada
     });
   }
 
@@ -103,8 +107,9 @@ class _CobroPageState extends State<CobroPage> {
   double _calcularTotal() {
     double total = 0.0;
     _carrito.forEach((nombre, cantidad) {
-      final precio = _productos.firstWhere((producto) =>
-      producto['nombre'] == nombre)['precio'] as double;
+      final precio = _productos
+          .firstWhere((producto) => producto['nombre'] == nombre)['precio']
+      as double;
       total += precio * cantidad;
     });
     return total;
@@ -243,7 +248,6 @@ class _CobroPageState extends State<CobroPage> {
     );
   }
 
-
   void _mostrarConfirmacionCompra() {
     showModalBottomSheet(
       context: context,
@@ -325,7 +329,6 @@ class _CobroPageState extends State<CobroPage> {
     );
   }
 
-
   void _mostrarAprobado() {
     showDialog(
       context: context,
@@ -393,7 +396,7 @@ class _CobroPageState extends State<CobroPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cobro', style: TextStyle(color: Colors.white),),
+        title: Text('Cobro', style: TextStyle(color: Colors.white)),
         backgroundColor: Color(0xFF004D40),
       ),
       body: Padding(
@@ -427,7 +430,7 @@ class _CobroPageState extends State<CobroPage> {
                         shape: RoundedRectangleBorder(
                           borderRadius: BorderRadius.circular(8),
                         ),
-                        padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02)
+                        padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
                       ),
                     ),
                   );
