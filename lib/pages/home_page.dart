@@ -23,6 +23,7 @@ class HomePage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Bienvenido'),
+        automaticallyImplyLeading: false,  // Oculta el botón de regresar en la HomePage
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),

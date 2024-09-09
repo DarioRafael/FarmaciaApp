@@ -63,6 +63,7 @@ class _LoginPageState extends State<LoginPage> {
               fontWeight: FontWeight.bold,
               color: Color(0xFFFFFFFF)),
         ),
+        automaticallyImplyLeading: false,
       ),
       body: Center(
         child: Padding(
