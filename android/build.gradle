@@ -1,7 +1,7 @@
 // Archivo: android/build.gradle
 
 buildscript {
-    ext.kotlin_version = '1.8.22' // Actualiza esta versión si es necesario
+    ext.kotlin_version = '1.8.0' // Actualiza esta versión si es necesario
     repositories {
         google()
         mavenCentral()

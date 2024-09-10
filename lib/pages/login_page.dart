@@ -13,7 +13,6 @@ class _LoginPageState extends State<LoginPage> {
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
 
-  // FocusNode para el campo de contraseña
   final _passwordFocusNode = FocusNode();
 
   Future<void> _login() async {
@@ -54,131 +53,147 @@ class _LoginPageState extends State<LoginPage> {
 
   @override
   void dispose() {
-    _passwordFocusNode.dispose(); // Limpia el FocusNode
+    _passwordFocusNode.dispose();
     super.dispose();
+  }
+
+  Future<bool> _onWillPop() async {
+    return (await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text('¿Salir de la aplicación?'),
+        content: Text('¿Estás seguro de que quieres salir?'),
+        actions: <Widget>[
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(false),
+            child: Text('No'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(true),
+            child: Text('Sí'),
+          ),
+        ],
+      ),
+    )) ??
+        false;
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        backgroundColor: Color(0xFF004D40), // Color hexadecimal
-        title: Text(
-          'Inicio de sesión',
-          style: TextStyle(
+    return WillPopScope(
+      onWillPop: _onWillPop,
+      child: Scaffold(
+        appBar: AppBar(
+          backgroundColor: Color(0xFF004D40),
+          title: Text(
+            'Inicio de sesión',
+            style: TextStyle(
               fontWeight: FontWeight.bold,
-              color: Color(0xFFFFFFFF)),
-        ),
-        automaticallyImplyLeading: false,
-      ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Card(
-            elevation: 4,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(12),
+              color: Color(0xFFFFFFFF),
             ),
-            child: Padding(
-              padding: const EdgeInsets.all(16.0),
-              child: Form(
-                key: _formKey,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Bienvenido a La Modelo',
-                      style: TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF004D40), // Color hexadecimal
-                      ),
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _emailController,
-                      decoration: InputDecoration(
-                        labelText: 'Correo electrónico',
-                        prefixIcon: Icon(Icons.email, color: Color(0xFF004D40)),
-                        // Color hexadecimal
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                              color: Color(0xFF004D40)), // Color hexadecimal
-                        ),
-                      ),
-                      keyboardType: TextInputType.emailAddress,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor ingresa tu correo electrónico';
-                        } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
-                          return 'Por favor ingresa un correo electrónico válido';
-                        }
-                        return null;
-                      },
-                      onChanged: (value) {
-                        // Elimina los espacios en tiempo real
-                        _emailController.text = value.replaceAll(' ', '');
-                        _emailController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: _emailController.text.length),
-                        );
-                      },
-                      // Configurar el FocusNode para el campo de contraseña
-                      onFieldSubmitted: (_) {
-                        FocusScope.of(context).requestFocus(_passwordFocusNode);
-                      },
-                    ),
-                    SizedBox(height: 16),
-                    TextFormField(
-                      controller: _passwordController,
-                      decoration: InputDecoration(
-                        labelText: 'Contraseña',
-                        prefixIcon: Icon(Icons.lock, color: Color(0xFF004D40)),
-                        // Color hexadecimal
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                          borderSide: BorderSide(
-                              color: Color(0xFF004D40)), // Color hexadecimal
-                        ),
-                      ),
-                      obscureText: true,
-                      focusNode: _passwordFocusNode,
-                      validator: (value) {
-                        if (value == null || value.isEmpty) {
-                          return 'Por favor ingresa tu contraseña';
-                        }
-                        return null;
-                      },
-                      // Llama a _login cuando el usuario presiona "Enter"
-                      onFieldSubmitted: (_) {
-                        _login();
-                      },
-                    ),
-                    SizedBox(height: 20),
-                    ElevatedButton(
-                      onPressed: _login,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Color(0xFF004D40), // Color hexadecimal
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        padding: EdgeInsets.symmetric(vertical: 14),
-                        minimumSize: Size(150, 50),
-                      ),
-                      child: Text(
-                        'Iniciar sesión',
+          ),
+          //automaticallyImplyLeading: false,
+        ),
+        body: Center(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Card(
+              elevation: 4,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(16.0),
+                child: Form(
+                  key: _formKey,
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        'Bienvenido a La Modelo',
                         style: TextStyle(
-                            fontSize: 16,
-                            color: Color(0xFFFFFFFF)),
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF004D40),
+                        ),
                       ),
-                    ),
-                  ],
+                      SizedBox(height: 16),
+                      TextFormField(
+                        controller: _emailController,
+                        decoration: InputDecoration(
+                          labelText: 'Correo electrónico',
+                          prefixIcon: Icon(Icons.email, color: Color(0xFF004D40)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Color(0xFF004D40)),
+                          ),
+                        ),
+                        keyboardType: TextInputType.emailAddress,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingresa tu correo electrónico';
+                          } else if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value)) {
+                            return 'Por favor ingresa un correo electrónico válido';
+                          }
+                          return null;
+                        },
+                        onChanged: (value) {
+                          _emailController.text = value.replaceAll(' ', '');
+                          _emailController.selection = TextSelection.fromPosition(
+                            TextPosition(offset: _emailController.text.length),
+                          );
+                        },
+                        onFieldSubmitted: (_) {
+                          FocusScope.of(context).requestFocus(_passwordFocusNode);
+                        },
+                      ),
+                      SizedBox(height: 16),
+                      TextFormField(
+                        controller: _passwordController,
+                        decoration: InputDecoration(
+                          labelText: 'Contraseña',
+                          prefixIcon: Icon(Icons.lock, color: Color(0xFF004D40)),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                            borderSide: BorderSide(color: Color(0xFF004D40)),
+                          ),
+                        ),
+                        obscureText: true,
+                        focusNode: _passwordFocusNode,
+                        validator: (value) {
+                          if (value == null || value.isEmpty) {
+                            return 'Por favor ingresa tu contraseña';
+                          }
+                          return null;
+                        },
+                        onFieldSubmitted: (_) {
+                          _login();
+                        },
+                      ),
+                      SizedBox(height: 20),
+                      ElevatedButton(
+                        onPressed: _login,
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Color(0xFF004D40),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          padding: EdgeInsets.symmetric(vertical: 14),
+                          minimumSize: Size(150, 50),
+                        ),
+                        child: Text(
+                          'Iniciar sesión',
+                          style: TextStyle(fontSize: 16, color: Color(0xFFFFFFFF)),
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
             ),
