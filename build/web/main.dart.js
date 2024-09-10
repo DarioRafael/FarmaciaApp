@@ -76819,7 +76819,7 @@ break
 case 2:p=q.d.a.a
 o=q.e.a.a
 A.tP("Enviando solicitud de inicio de sesi\xf3n con email: "+p+" y password: "+o)
-k=A.h7("https://moderna-server.vercel.app/api/v1/ingresar")
+k=A.h7("https://modelo-server.vercel.app/api/v1/ingresar")
 n=t.N
 m=A.ak(["Content-Type","application/json; charset=UTF-8"],n,n)
 s=4
