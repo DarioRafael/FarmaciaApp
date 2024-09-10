@@ -24,7 +24,7 @@ class _LoginPageState extends State<LoginPage> {
       print('Enviando solicitud de inicio de sesión con email: $email y password: $password');
 
       final response = await http.post(
-        Uri.parse('https://moderna-server.vercel.app/api/v1/ingresar'),
+        Uri.parse('https://modelo-server.vercel.app/api/v1/ingresar'),
         headers: <String, String>{
           'Content-Type': 'application/json; charset=UTF-8',
         },
