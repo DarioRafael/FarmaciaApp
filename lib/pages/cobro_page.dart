@@ -599,15 +599,29 @@ class _CobroPageState extends State<CobroPage> {
         actions: [
           if (_carritos.isNotEmpty) ...[
             TextButton.icon(
-              icon: Icon(Icons.add_shopping_cart, color: Colors.white),
-              label: Text('Nuevo', style: TextStyle(color: Colors.white)),
               onPressed: _agregarNuevoCarrito,
+              icon: Icon(Icons.add_shopping_cart, color: Colors.white),
+              label: Row(
+                children: [
+                  Text('+',
+                      style: TextStyle(color: Colors.white, fontSize: 28)),
+                  SizedBox(width: 4),
+                  Text('Nuevo', style: TextStyle(color: Colors.white)),
+                ],
+              ),
             ),
             TextButton.icon(
-              icon: Icon(Icons.swap_horiz, color: Colors.white),
-              label: Text('Cambiar', style: TextStyle(color: Colors.white)),
               onPressed: _mostrarDialogoCambiarCarrito,
-            ),
+              icon: Icon(Icons.swap_horiz, color: Colors.white),
+              label: Row(
+                children: [
+                  Text('⇄',
+                      style: TextStyle(color: Colors.white, fontSize: 24)),
+                  SizedBox(width: 4),
+                  Text('Cambiar', style: TextStyle(color: Colors.white)),
+                ],
+              ),
+            )
           ],
         ],
       ),
