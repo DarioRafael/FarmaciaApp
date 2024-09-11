@@ -326,7 +326,8 @@ class _CobroPageState extends State<CobroPage> {
                   }
                   _mostrarNotificacion('Venta confirmada.');
                   Navigator.of(context).pop(); // Cierra el diálogo
-                  Navigator.of(context).pop(); // Cierra el carrito si está abierto
+                  Navigator.of(context)
+                      .pop(); // Cierra el carrito si está abierto
                 });
               },
               child: Text('Confirmar'),
@@ -355,7 +356,8 @@ class _CobroPageState extends State<CobroPage> {
               onPressed: () {
                 setState(() {
                   _carritos.add({});
-                  _carritoActivo = _carritos.length - 1; // Selecciona el nuevo carrito como activo
+                  _carritoActivo = _carritos.length -
+                      1; // Selecciona el nuevo carrito como activo
                 });
                 Navigator.of(context).pop(); // Cierra el diálogo
               },
@@ -366,7 +368,6 @@ class _CobroPageState extends State<CobroPage> {
       },
     );
   }
-
 
   void _cambiarCarrito(int nuevoIndex) {
     setState(() {
@@ -422,7 +423,7 @@ class _CobroPageState extends State<CobroPage> {
                     child: ListView(
                       children: _carritos[index].entries.map((entry) {
                         final producto = _productos.firstWhere(
-                                (producto) => producto['nombre'] == entry.key);
+                            (producto) => producto['nombre'] == entry.key);
                         return ListTile(
                           title: Text('${entry.key}'),
                           subtitle: Row(
@@ -440,16 +441,21 @@ class _CobroPageState extends State<CobroPage> {
                                   onChanged: (nuevaCantidad) {
                                     if (nuevaCantidad != null) {
                                       setState(() {
-                                        _actualizarCantidad(entry.key, nuevaCantidad);
+                                        _actualizarCantidad(
+                                            entry.key, nuevaCantidad);
                                       });
                                     }
                                   },
                                 ),
                               ),
-                              SizedBox(width: MediaQuery.of(context).size.width * 0.02),
-                              Text('Precio total: \$${producto['precio'] * entry.value}'),
+                              SizedBox(
+                                  width:
+                                      MediaQuery.of(context).size.width * 0.02),
+                              Text(
+                                  'Precio total: \$${producto['precio'] * entry.value}'),
                               IconButton(
-                                icon: Icon(Icons.delete, color: Color(0xFF004D40)),
+                                icon: Icon(Icons.delete,
+                                    color: Color(0xFF004D40)),
                                 onPressed: () {
                                   setState(() {
                                     _eliminarDelCarrito(entry.key);
@@ -472,7 +478,8 @@ class _CobroPageState extends State<CobroPage> {
                     onPressed: () {
                       setState(() {
                         _vaciarCarrito();
-                        Navigator.pop(context); // Cierra el carrito cuando se vacía
+                        Navigator.pop(
+                            context); // Cierra el carrito cuando se vacía
                       });
                     },
                     style: ElevatedButton.styleFrom(
@@ -482,9 +489,11 @@ class _CobroPageState extends State<CobroPage> {
                       ),
                       padding: EdgeInsets.symmetric(
                           vertical: MediaQuery.of(context).size.height * 0.02),
-                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                      minimumSize: Size(double.infinity,
+                          MediaQuery.of(context).size.height * 0.05),
                     ),
-                    child: Text('Vaciar carrito', style: TextStyle(color: Colors.white)),
+                    child: Text('Vaciar carrito',
+                        style: TextStyle(color: Colors.white)),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                   ElevatedButton(
@@ -498,9 +507,11 @@ class _CobroPageState extends State<CobroPage> {
                       ),
                       padding: EdgeInsets.symmetric(
                           vertical: MediaQuery.of(context).size.height * 0.02),
-                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                      minimumSize: Size(double.infinity,
+                          MediaQuery.of(context).size.height * 0.05),
                     ),
-                    child: Text('Confirmar venta', style: TextStyle(color: Colors.white)),
+                    child: Text('Confirmar venta',
+                        style: TextStyle(color: Colors.white)),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                 ],
@@ -511,7 +522,6 @@ class _CobroPageState extends State<CobroPage> {
       },
     );
   }
-
 
   void _mostrarDialogoCambiarCarrito() {
     showDialog(
@@ -563,7 +573,8 @@ class _CobroPageState extends State<CobroPage> {
                     onTap: () {
                       setState(() {
                         _carritoActivo = index;
-                        Navigator.pop(context); // Cierra el diálogo después de seleccionar
+                        Navigator.pop(
+                            context); // Cierra el diálogo después de seleccionar
                       });
                     },
                   );
@@ -580,19 +591,24 @@ class _CobroPageState extends State<CobroPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text('Cobro', style: TextStyle(color:Colors.white),),
+        title: Text(
+          'Cobro',
+          style: TextStyle(color: Colors.white),
+        ),
         backgroundColor: Color(0xFF004D40),
         actions: [
-          TextButton.icon(
-            icon: Icon(Icons.add_shopping_cart, color: Colors.white),
-            label: Text('Nuevo', style: TextStyle(color: Colors.white)),
-            onPressed: _agregarNuevoCarrito,
-          ),
-          TextButton.icon(
-            icon: Icon(Icons.swap_horiz, color: Colors.white),
-            label: Text('Cambiar', style: TextStyle(color: Colors.white)),
-            onPressed: _mostrarDialogoCambiarCarrito,
-          ),
+          if (_carritos.isNotEmpty) ...[
+            TextButton.icon(
+              icon: Icon(Icons.add_shopping_cart, color: Colors.white),
+              label: Text('Nuevo', style: TextStyle(color: Colors.white)),
+              onPressed: _agregarNuevoCarrito,
+            ),
+            TextButton.icon(
+              icon: Icon(Icons.swap_horiz, color: Colors.white),
+              label: Text('Cambiar', style: TextStyle(color: Colors.white)),
+              onPressed: _mostrarDialogoCambiarCarrito,
+            ),
+          ],
         ],
       ),
       body: Column(
@@ -621,7 +637,10 @@ class _CobroPageState extends State<CobroPage> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Color(0xFF004D40),
                     ),
-                    child: Text('Agregar', style: TextStyle(color: Colors.white),),
+                    child: Text(
+                      'Agregar',
+                      style: TextStyle(color: Colors.white),
+                    ),
                   ),
                 );
               },
