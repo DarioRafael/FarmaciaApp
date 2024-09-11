@@ -586,13 +586,13 @@ class _CobroPageState extends State<CobroPage> {
           if (_carritos.isNotEmpty) ...[
             IconButton(
               // Botón para agregar un nuevo carrito
-              icon: Icon(Icons.add_shopping_cart, color: Colors.white),
+              icon: Icon(Icons.add_shopping_cart, color: Colors.grey[300]),
               // Puedes cambiar el ícono si lo deseas
               onPressed: _agregarNuevoCarrito,
             ),
             IconButton(
               // Botón para cambiar de carrito
-              icon: Icon(Icons.swap_horiz, color: Colors.white),
+              icon: Icon(Icons.swap_horiz, color: Colors.grey[300]),
               onPressed:  _mostrarDialogoCambiarCarrito,
             ),
           ],
