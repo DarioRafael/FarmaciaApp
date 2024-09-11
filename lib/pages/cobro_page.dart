@@ -598,30 +598,32 @@ class _CobroPageState extends State<CobroPage> {
         backgroundColor: Color(0xFF004D40),
         actions: [
           if (_carritos.isNotEmpty) ...[
-            TextButton.icon(
+            TextButton(
               onPressed: _agregarNuevoCarrito,
-              icon: Icon(Icons.add_shopping_cart, color: Colors.white),
-              label: Row(
+              style: ButtonStyle(
+                //backgroundColor: MaterialStateProperty.all(Colors.green), // Color de fondo del botón
+              ),
+              child: Row(
                 children: [
-                  Text('+',
-                      style: TextStyle(color: Colors.white, fontSize: 28)),
+                  Text('+', style: TextStyle(color: Colors.white, fontSize: 28)),
                   SizedBox(width: 4),
                   Text('Nuevo', style: TextStyle(color: Colors.white)),
                 ],
               ),
             ),
-            TextButton.icon(
+            TextButton(
               onPressed: _mostrarDialogoCambiarCarrito,
-              icon: Icon(Icons.swap_horiz, color: Colors.white),
-              label: Row(
+              style: ButtonStyle(
+                //backgroundColor: MaterialStateProperty.all(Colors.green), // Color de fondo del botón
+              ),
+              child: Row(
                 children: [
-                  Text('⇄',
-                      style: TextStyle(color: Colors.white, fontSize: 24)),
+                  Text('⇄', style: TextStyle(color: Colors.white, fontSize: 24)),
                   SizedBox(width: 4),
                   Text('Cambiar', style: TextStyle(color: Colors.white)),
                 ],
               ),
-            )
+            ),
           ],
         ],
       ),
