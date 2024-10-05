@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart'; // Importa shared_preferences para manejar el cierre de sesión
+import 'package:shop_app/pages/usuarios_page.dart';
 import 'cobro_page.dart';
 import 'catalogo_page.dart';
 import 'inventario_page.dart';
@@ -48,6 +49,7 @@ class HomePage extends StatelessWidget {
               _buildGridTile(context, 'Catálogo', Icons.inventory, CatalogoPage()),
               _buildGridTile(context, 'Inventario', Icons.storage, InventarioPage()),
               _buildGridTile(context, 'Reportes', Icons.analytics, ReportesPage()),
+              _buildGridTile(context, "Usuarios", Icons.verified_user, UsuariosPage())
             ],
           ),
         ),
