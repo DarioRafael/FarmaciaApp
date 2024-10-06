@@ -1,56 +1,105 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart'; // Importa shared_preferences para manejar el cierre de sesión
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop_app/pages/usuarios_page.dart';
 import 'cobro_page.dart';
 import 'catalogo_page.dart';
 import 'inventario_page.dart';
 import 'reportes_page.dart';
-import 'login_page.dart'; // Asegúrate de importar la página de inicio de sesión
+import 'login_page.dart';
 
-class HomePage extends StatelessWidget {
+class HomePage extends StatefulWidget {
   const HomePage({super.key});
 
   @override
-  Widget build(BuildContext context) {
-    // Obtener el ancho de la pantalla para hacer ajustes responsivos
-    final screenWidth = MediaQuery.of(context).size.width;
-    int crossAxisCount = 2; // Valor predeterminado para pantallas pequeñas
+  State<HomePage> createState() => _HomePageState();
+}
 
-    // Ajustar número de columnas según el ancho de la pantalla
+class _HomePageState extends State<HomePage> {
+  String? userRole;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserRole();
+  }
+
+  Future<void> _loadUserRole() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      userRole = prefs.getString('userRole') ?? '';
+    });
+  }
+
+  List<Map<String, dynamic>> _getMenuItemsByRole() {
+    final List<Map<String, dynamic>> allItems = [
+      {'title': 'Cobrar', 'icon': Icons.attach_money, 'page': CobroPage()},
+      {'title': 'Catálogo', 'icon': Icons.inventory, 'page': CatalogoPage()},
+      {'title': 'Inventario', 'icon': Icons.storage, 'page': InventarioPage()},
+      {'title': 'Reportes', 'icon': Icons.analytics, 'page': ReportesPage()},
+      {'title': 'Usuarios', 'icon': Icons.verified_user, 'page': UsuariosPage()},
+    ];
+
+    if (userRole == 'propietario') {
+      return allItems;}
+    else if (userRole == 'empleado') {
+      return allItems.take(3).toList();
+    } else {
+      return [];
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    int crossAxisCount = 2;
+
     if (screenWidth > 1200) {
       crossAxisCount = 4;
     } else if (screenWidth > 800) {
       crossAxisCount = 3;
     }
 
+    final menuItems = _getMenuItemsByRole();
+
     return WillPopScope(
       onWillPop: () async {
-        // Mostrar el cuadro de diálogo cuando se presiona el botón "Atrás"
         final shouldLogout = await _showLogoutConfirmationDialog(context);
         if (shouldLogout) {
           await _logout(context);
-          return true; // Permite salir después de hacer logout
+          return true;
         }
-        return false; // Cancela la acción de retroceso si se elige "No"
+        return false;
       },
       child: Scaffold(
         appBar: AppBar(
-          title: const Text('Bienvenido'),
-          automaticallyImplyLeading: false, // Oculta el botón de regresar en la HomePage
+          title: Text('Bienvenido ${userRole ?? ""}'),
+          automaticallyImplyLeading: false,
+          actions: [
+            IconButton(
+              icon: Icon(Icons.logout),
+              onPressed: () async {
+                final shouldLogout = await _showLogoutConfirmationDialog(context);
+                if (shouldLogout) {
+                  await _logout(context);
+                }
+              },
+            ),
+          ],
         ),
         body: Padding(
           padding: const EdgeInsets.all(16.0),
           child: GridView.count(
-            crossAxisCount: crossAxisCount, // Número dinámico de columnas
+            crossAxisCount: crossAxisCount,
             crossAxisSpacing: 10.0,
             mainAxisSpacing: 10.0,
-            children: [
-              _buildGridTile(context, 'Cobrar', Icons.attach_money, CobroPage()),
-              _buildGridTile(context, 'Catálogo', Icons.inventory, CatalogoPage()),
-              _buildGridTile(context, 'Inventario', Icons.storage, InventarioPage()),
-              _buildGridTile(context, 'Reportes', Icons.analytics, ReportesPage()),
-              _buildGridTile(context, "Usuarios", Icons.verified_user, UsuariosPage())
-            ],
+            children: menuItems
+                .map((item) => _buildGridTile(
+              context,
+              item['title'],
+              item['icon'],
+              item['page'],
+            ))
+                .toList(),
           ),
         ),
       ),
@@ -58,9 +107,8 @@ class HomePage extends StatelessWidget {
   }
 
   Widget _buildGridTile(BuildContext context, String title, IconData icon, Widget page) {
-    // Ajustar el tamaño del icono basado en el ancho de la pantalla
     final screenWidth = MediaQuery.of(context).size.width;
-    double iconSize = screenWidth > 800 ? 64.0 : 48.0; // Iconos más grandes en pantallas grandes
+    double iconSize = screenWidth > 800 ? 64.0 : 48.0;
 
     return GestureDetector(
       onTap: () {
@@ -83,7 +131,6 @@ class HomePage extends StatelessWidget {
     );
   }
 
-  // Función para mostrar el cuadro de confirmación de cierre de sesión
   Future<bool> _showLogoutConfirmationDialog(BuildContext context) async {
     return (await showDialog(
       context: context,
@@ -92,25 +139,24 @@ class HomePage extends StatelessWidget {
         content: const Text('¿Estás seguro de que deseas cerrar sesión?'),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(context).pop(false), // Opción "No"
+            onPressed: () => Navigator.of(context).pop(false),
             child: const Text('No'),
           ),
           TextButton(
-            onPressed: () => Navigator.of(context).pop(true), // Opción "Sí"
+            onPressed: () => Navigator.of(context).pop(true),
             child: const Text('Sí'),
           ),
         ],
       ),
-    )) ?? false; // Devuelve false si el diálogo se cierra sin seleccionar una opción
+    )) ?? false;
   }
 
-  // Función para cerrar sesión y redirigir al login
   Future<void> _logout(BuildContext context) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('isLoggedIn'); // Elimina el estado de sesión
+    await prefs.clear(); // Limpia todas las preferencias al cerrar sesión
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage()), // Redirige al login
+      MaterialPageRoute(builder: (context) => LoginPage()),
     );
   }
 }
