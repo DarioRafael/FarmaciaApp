@@ -9,13 +9,16 @@ class CobroPage extends StatefulWidget {
 
 class _CobroPageState extends State<CobroPage> {
   final List<Map<String, dynamic>> _productos = [
-    {'nombre': 'Sabritas', 'precio': 10.0},
-    {'nombre': 'Papas', 'precio': 20.0},
-    {'nombre': 'Coca', 'precio': 30.0},
-    {'nombre': 'Sprite', 'precio': 30.0},
-    {'nombre': 'Fanta', 'precio': 30.0},
-    {'nombre': 'Coca Light', 'precio': 30.0},
-    {'nombre': 'Coca Zero', 'precio': 30.0},
+    {'nombre': 'Lapiceros', 'precio': 3.09},
+    {'nombre': 'Regla', 'precio': 10.90},
+    {'nombre': 'Cuaderno profesional', 'precio': 45.00},
+    {'nombre': 'Marcadores', 'precio': 85.50},
+    {'nombre': 'Pegamento', 'precio': 15.00},
+    {'nombre': 'Tijeras', 'precio': 25.30},
+    {'nombre': 'Papel bond', 'precio': 95.00},
+    {'nombre': 'Goma de borrar', 'precio': 5.50},
+    {'nombre': 'Lápiz 2B', 'precio': 12.00},
+    {'nombre': 'Clips', 'precio': 1.50},
   ];
 
   final List<Map<String, int>> _carritos = [];
