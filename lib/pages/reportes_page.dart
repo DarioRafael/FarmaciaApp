@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'package:intl/intl.dart'; // Asegúrate de añadir intl como dependencia en pubspec.yaml
+import 'package:intl/intl.dart';
 
 class ReportesPage extends StatefulWidget {
   const ReportesPage({super.key});
@@ -15,33 +15,46 @@ class _ReportesPageState extends State<ReportesPage> {
   String? _detalleReporte;
 
   @override
+  void initState() {
+    super.initState();
+    final now = DateTime.now();
+    _startDate = DateTime(now.year, now.month, 1); // Primer día del mes actual
+    _endDate = now; // Día actual
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Generar Reportes'),
+        centerTitle: true,
       ),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Text(
-                'Generar Reportes',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
-              const SizedBox(height: 20),
-              _buildTipoReporteDropdown(),
-              const SizedBox(height: 20),
-              if (_tipoReporte == 'Ventas') _buildDetalleReporteDropdown(),
-              const SizedBox(height: 20),
-              _buildDateButton(true, 'Seleccionar Fecha de Inicio'),
-              const SizedBox(height: 10),
-              _buildDateButton(false, 'Seleccionar Fecha de Fin'),
-              const SizedBox(height: 20),
-              _buildGenerateButton(),
-            ],
-          ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Text(
+              'Generar Reportes',
+              style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 30),
+            _buildTipoReporteDropdown(),
+            const SizedBox(height: 20),
+            if (_tipoReporte == 'Ventas') _buildDetalleReporteDropdown(),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Expanded(child: _buildDateButton(true, 'Fecha de Inicio')),
+                const SizedBox(width: 10),
+                Expanded(child: _buildDateButton(false, 'Fecha de Fin')),
+              ],
+            ),
+            const SizedBox(height: 30),
+            _buildGenerateButton(),
+          ],
         ),
       ),
     );
@@ -49,7 +62,7 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Widget _buildTipoReporteDropdown() {
     return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         labelText: 'Tipo de Reporte',
         border: OutlineInputBorder(),
         filled: true,
@@ -65,7 +78,7 @@ class _ReportesPageState extends State<ReportesPage> {
       onChanged: (String? newValue) {
         setState(() {
           _tipoReporte = newValue;
-          _detalleReporte = null; // Reiniciar detalle al cambiar tipo
+          _detalleReporte = null;
         });
       },
     );
@@ -73,7 +86,7 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Widget _buildDetalleReporteDropdown() {
     return DropdownButtonFormField<String>(
-      decoration: InputDecoration(
+      decoration: const InputDecoration(
         labelText: 'Detalle del Reporte',
         border: OutlineInputBorder(),
         filled: true,
@@ -94,18 +107,30 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  Widget _buildDateButton(bool isStartDate, String defaultText) {
-    return ElevatedButton(
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blueAccent, // Color de fondo del botón
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), // Padding del botón
+  Widget _buildDateButton(bool isStartDate, String label) {
+    final formattedDate = isStartDate
+        ? (_startDate != null ? DateFormat('yyyy-MM-dd').format(_startDate!) : '')
+        : (_endDate != null ? DateFormat('yyyy-MM-dd').format(_endDate!) : '');
+    final buttonText = isStartDate ? 'Fecha de Inicio: $formattedDate' : 'Fecha de Fin: $formattedDate';
+
+    return OutlinedButton(
+      style: OutlinedButton.styleFrom(
+        side: BorderSide(color: Colors.blueAccent, width: 2),
+        padding: const EdgeInsets.symmetric(vertical: 16),
       ),
       onPressed: () => _selectDate(context, isStartDate),
-      child: Text(
-        isStartDate
-            ? (_startDate == null ? defaultText : 'Fecha de Inicio: ${DateFormat('yyyy-MM-dd').format(_startDate!)}')
-            : (_endDate == null ? defaultText : 'Fecha de Fin: ${DateFormat('yyyy-MM-dd').format(_endDate!)}'),
-        style: const TextStyle(color: Colors.white), // Color del texto
+      child: Column(
+        children: [
+          Text(
+            label,
+            style: TextStyle(color: Colors.blueAccent, fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            formattedDate,
+            style: const TextStyle(color: Colors.black87, fontSize: 16),
+          ),
+        ],
       ),
     );
   }
@@ -113,25 +138,35 @@ class _ReportesPageState extends State<ReportesPage> {
   Widget _buildGenerateButton() {
     return ElevatedButton(
       onPressed: () {
-        // Implementar funcionalidad para generar reportes aquí
+        if (_startDate != null && _endDate != null && _endDate!.isBefore(_startDate!)) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('La fecha de fin no puede ser anterior a la fecha de inicio.'),
+              backgroundColor: Colors.redAccent,
+            ),
+          );
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Generando reporte...'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
       },
       style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.green, // Color de fondo del botón
-        padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 16), // Padding del botón
+        backgroundColor: Colors.green,
+        padding: const EdgeInsets.symmetric(vertical: 16),
       ),
       child: const Text(
-        'Generar Reportes',
-        style: TextStyle(color: Colors.white), // Color del texto
+        'Generar Reporte',
+        style: TextStyle(color: Colors.white, fontSize: 16),
       ),
     );
   }
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
-    DateTime initialDate = DateTime.now();
-    if (!isStartDate && _startDate != null) {
-      initialDate = _startDate!.add(const Duration(days: 1));
-    }
-
+    DateTime initialDate = isStartDate ? _startDate! : _endDate!;
     final DateTime? picked = await showDatePicker(
       context: context,
       initialDate: initialDate,
@@ -143,6 +178,9 @@ class _ReportesPageState extends State<ReportesPage> {
       setState(() {
         if (isStartDate) {
           _startDate = picked;
+          if (_endDate != null && _endDate!.isBefore(_startDate!)) {
+            _endDate = picked; // Ajustar la fecha de fin si es antes que la de inicio
+          }
         } else {
           _endDate = picked;
         }
