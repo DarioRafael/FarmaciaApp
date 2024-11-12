@@ -44,6 +44,7 @@ class _CobroPageState extends State<CobroPage> {
           if (!productosUnicos.containsKey(id)) {
             productosUnicos[id] = {
               'nombre': p['Nombre'],
+              'stock': p['Stock'],
               'precio': p['Precio'].toDouble(),
               'categoria': p['Categoria'],
             };
@@ -132,35 +133,44 @@ class _CobroPageState extends State<CobroPage> {
 
   void _agregarAlCarrito(Map<String, dynamic> producto) {
     setState(() {
+      final nombreProducto = producto['nombre'];
+      final stockDisponible = producto['stock'];
+
+      if (stockDisponible == 0) {
+        _mostrarNotificacion('No hay stock disponible para $nombreProducto.');
+        return;
+      }
+
       if (_carritoActivo == -1) {
         _carritos.add({});
         _carritoActivo = 0;
       }
       final carritoActual = _carritos[_carritoActivo];
 
-      if (carritoActual.containsKey(producto['nombre'])) {
-        carritoActual[producto['nombre']] =
-            carritoActual[producto['nombre']]! + 1;
-        _mostrarNotificacion(
-            'Actualizada la cantidad de ${producto['nombre']}.');
+      if (carritoActual.containsKey(nombreProducto)) {
+        if (carritoActual[nombreProducto]! < stockDisponible) {
+          carritoActual[nombreProducto] = carritoActual[nombreProducto]! + 1;
+          _mostrarNotificacion('Actualizada la cantidad de $nombreProducto.');
+        } else {
+          _mostrarNotificacion('No se puede agregar más de $stockDisponible unidades de $nombreProducto.');
+        }
       } else {
-        carritoActual[producto['nombre']] = 1;
-        _mostrarNotificacion('Agregado ${producto['nombre']} al carrito.');
+        carritoActual[nombreProducto] = 1;
+        _mostrarNotificacion('Agregado $nombreProducto al carrito.');
       }
 
       _productosFiltrados = _productos
           .where((producto) =>
-              producto['nombre'].toLowerCase().contains(_query.toLowerCase()) &&
-              (_categoriaSeleccionada == 'Todos' ||
-                  producto['categoria'] == _categoriaSeleccionada))
+      producto['nombre'].toLowerCase().contains(_query.toLowerCase()) &&
+          (_categoriaSeleccionada == 'Todos' ||
+              producto['categoria'] == _categoriaSeleccionada))
           .toList(); // Actualiza la lista filtrada
 
-      if (_carritos.isNotEmpty) {
+      if (_carritos.isNotEmpty && carritoActual.isNotEmpty) {
         _mostrarBotonFlotante();
       }
     });
   }
-
   void _eliminarDelCarrito(String nombreProducto) {
     setState(() {
       if (_carritoActivo != -1) {
@@ -232,8 +242,7 @@ class _CobroPageState extends State<CobroPage> {
       builder: (BuildContext context) {
         return StatefulBuilder(
           builder: (BuildContext context, StateSetter setState) {
-            final hayProductos =
-                _carritoActivo != -1 && _carritos[_carritoActivo].isNotEmpty;
+            final hayProductos = _carritoActivo != -1 && _carritos[_carritoActivo].isNotEmpty;
 
             return Container(
               height: MediaQuery.of(context).size.height,
@@ -255,7 +264,8 @@ class _CobroPageState extends State<CobroPage> {
                     child: ListView(
                       children: _carritos[_carritoActivo].entries.map((entry) {
                         final producto = _productos.firstWhere(
-                            (producto) => producto['nombre'] == entry.key);
+                                (producto) => producto['nombre'] == entry.key);
+                        final stockDisponible = producto['stock'];
                         return ListTile(
                           title: Text('${entry.key}'),
                           subtitle: Row(
@@ -263,7 +273,7 @@ class _CobroPageState extends State<CobroPage> {
                               Expanded(
                                 child: DropdownButton<int>(
                                   value: entry.value,
-                                  items: List.generate(10, (index) => index + 1)
+                                  items: List.generate(stockDisponible, (index) => index + 1)
                                       .map((cantidad) {
                                     return DropdownMenuItem<int>(
                                       value: cantidad,
@@ -273,21 +283,16 @@ class _CobroPageState extends State<CobroPage> {
                                   onChanged: (nuevaCantidad) {
                                     if (nuevaCantidad != null) {
                                       setState(() {
-                                        _actualizarCantidad(
-                                            entry.key, nuevaCantidad);
+                                        _actualizarCantidad(entry.key, nuevaCantidad);
                                       });
                                     }
                                   },
                                 ),
                               ),
-                              SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.02),
-                              Text(
-                                  'Precio total: \$${producto['precio'] * entry.value}'),
+                              SizedBox(width: MediaQuery.of(context).size.width * 0.02),
+                              Text('Precio total: \$${producto['precio'] * entry.value}'),
                               IconButton(
-                                icon: Icon(Icons.delete,
-                                    color: Color(0xFF004D40)),
+                                icon: Icon(Icons.delete, color: Color(0xFF004D40)),
                                 onPressed: () {
                                   setState(() {
                                     _eliminarDelCarrito(entry.key);
@@ -301,17 +306,14 @@ class _CobroPageState extends State<CobroPage> {
                     ),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  Text('Unidades totales: ${_contarUnidades()}',
-                      style: TextStyle(color: Color(0xFF004D40))),
-                  Text('Total a pagar: \$${_calcularTotal()}',
-                      style: TextStyle(color: Color(0xFF004D40))),
+                  Text('Unidades totales: ${_contarUnidades()}', style: TextStyle(color: Color(0xFF004D40))),
+                  Text('Total a pagar: \$${_calcularTotal()}', style: TextStyle(color: Color(0xFF004D40))),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                   ElevatedButton(
                     onPressed: () {
                       setState(() {
                         _vaciarCarrito();
-                        Navigator.pop(
-                            context); // Cierra el carrito cuando se vacía
+                        Navigator.pop(context); // Cierra el carrito cuando se vacía
                       });
                     },
                     style: ElevatedButton.styleFrom(
@@ -319,13 +321,10 @@ class _CobroPageState extends State<CobroPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: EdgeInsets.symmetric(
-                          vertical: MediaQuery.of(context).size.height * 0.02),
-                      minimumSize: Size(double.infinity,
-                          MediaQuery.of(context).size.height * 0.05),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
                     ),
-                    child: Text('Vaciar carrito',
-                        style: TextStyle(color: Colors.white)),
+                    child: Text('Vaciar carrito', style: TextStyle(color: Colors.white)),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                   ElevatedButton(
@@ -337,13 +336,130 @@ class _CobroPageState extends State<CobroPage> {
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      padding: EdgeInsets.symmetric(
-                          vertical: MediaQuery.of(context).size.height * 0.02),
-                      minimumSize: Size(double.infinity,
-                          MediaQuery.of(context).size.height * 0.05),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
                     ),
-                    child: Text('Confirmar venta',
-                        style: TextStyle(color: Colors.white)),
+                    child: Text('Confirmar venta', style: TextStyle(color: Colors.white)),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                ],
+              ),
+            );
+          },
+        );
+      },
+    );
+  }
+
+  void _mostrarCarritoConIndice(int index) {
+    if (index == -1 || index >= _carritos.length) {
+      return; // No hay carrito válido para mostrar
+    }
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            final hayProductos = _carritos[index].isNotEmpty;
+
+            return Container(
+              height: MediaQuery.of(context).size.height,
+              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+              child: Column(
+                children: [
+                  Text(
+                    'Carrito de Compras ${index + 1}',
+                    style: TextStyle(
+                      fontSize: MediaQuery.of(context).size.width * 0.05 < 20
+                          ? MediaQuery.of(context).size.width * 0.05
+                          : 20,
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF004D40),
+                    ),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  Expanded(
+                    child: ListView(
+                      children: _carritos[index].entries.map((entry) {
+                        final producto = _productos.firstWhere(
+                                (producto) => producto['nombre'] == entry.key);
+                        final stockDisponible = producto['stock'];
+                        return ListTile(
+                          title: Text('${entry.key}'),
+                          subtitle: Row(
+                            children: [
+                              Expanded(
+                                child: DropdownButton<int>(
+                                  value: entry.value,
+                                  items: List.generate(stockDisponible, (index) => index + 1)
+                                      .map((cantidad) {
+                                    return DropdownMenuItem<int>(
+                                      value: cantidad,
+                                      child: Text('$cantidad'),
+                                    );
+                                  }).toList(),
+                                  onChanged: (nuevaCantidad) {
+                                    if (nuevaCantidad != null) {
+                                      setState(() {
+                                        _actualizarCantidad(entry.key, nuevaCantidad);
+                                      });
+                                    }
+                                  },
+                                ),
+                              ),
+                              SizedBox(width: MediaQuery.of(context).size.width * 0.02),
+                              Text('Precio total: \$${producto['precio'] * entry.value}'),
+                              IconButton(
+                                icon: Icon(Icons.delete, color: Color(0xFF004D40)),
+                                onPressed: () {
+                                  setState(() {
+                                    _eliminarDelCarrito(entry.key);
+                                  });
+                                },
+                              ),
+                            ],
+                          ),
+                        );
+                      }).toList(),
+                    ),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  Text('Unidades totales: ${_contarUnidades()}', style: TextStyle(color: Color(0xFF004D40))),
+                  Text('Total a pagar: \$${_calcularTotal()}', style: TextStyle(color: Color(0xFF004D40))),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _vaciarCarrito();
+                        Navigator.pop(context); // Cierra el carrito cuando se vacía
+                      });
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF004D40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                    ),
+                    child: Text('Vaciar carrito', style: TextStyle(color: Colors.white)),
+                  ),
+                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
+                  ElevatedButton(
+                    onPressed: () {
+                      _confirmarVenta();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Color(0xFF004D40),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      padding: EdgeInsets.symmetric(vertical: MediaQuery.of(context).size.height * 0.02),
+                      minimumSize: Size(double.infinity, MediaQuery.of(context).size.height * 0.05),
+                    ),
+                    child: Text('Confirmar venta', style: TextStyle(color: Colors.white)),
                   ),
                   SizedBox(height: MediaQuery.of(context).size.height * 0.02),
                 ],
@@ -448,138 +564,7 @@ class _CobroPageState extends State<CobroPage> {
     });
   }
 
-  void _mostrarCarritoConIndice(int index) {
-    if (index == -1 || index >= _carritos.length) {
-      return; // No hay carrito válido para mostrar
-    }
 
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      builder: (BuildContext context) {
-        return StatefulBuilder(
-          builder: (BuildContext context, StateSetter setState) {
-            final hayProductos = _carritos[index].isNotEmpty;
-
-            return Container(
-              height: MediaQuery.of(context).size.height,
-              padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-              child: Column(
-                children: [
-                  Text(
-                    'Carrito de Compras ${index + 1}',
-                    style: TextStyle(
-                      fontSize: MediaQuery.of(context).size.width * 0.05 < 20
-                          ? MediaQuery.of(context).size.width * 0.05
-                          : 20,
-                      fontWeight: FontWeight.bold,
-                      color: Color(0xFF004D40),
-                    ),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  Expanded(
-                    child: ListView(
-                      children: _carritos[index].entries.map((entry) {
-                        final producto = _productos.firstWhere(
-                            (producto) => producto['nombre'] == entry.key);
-                        return ListTile(
-                          title: Text('${entry.key}'),
-                          subtitle: Row(
-                            children: [
-                              Expanded(
-                                child: DropdownButton<int>(
-                                  value: entry.value,
-                                  items: List.generate(10, (index) => index + 1)
-                                      .map((cantidad) {
-                                    return DropdownMenuItem<int>(
-                                      value: cantidad,
-                                      child: Text('$cantidad'),
-                                    );
-                                  }).toList(),
-                                  onChanged: (nuevaCantidad) {
-                                    if (nuevaCantidad != null) {
-                                      setState(() {
-                                        _actualizarCantidad(
-                                            entry.key, nuevaCantidad);
-                                      });
-                                    }
-                                  },
-                                ),
-                              ),
-                              SizedBox(
-                                  width:
-                                      MediaQuery.of(context).size.width * 0.02),
-                              Text(
-                                  'Precio total: \$${producto['precio'] * entry.value}'),
-                              IconButton(
-                                icon: Icon(Icons.delete,
-                                    color: Color(0xFF004D40)),
-                                onPressed: () {
-                                  setState(() {
-                                    _eliminarDelCarrito(entry.key);
-                                  });
-                                },
-                              ),
-                            ],
-                          ),
-                        );
-                      }).toList(),
-                    ),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  Text('Unidades totales: ${_contarUnidades()}',
-                      style: TextStyle(color: Color(0xFF004D40))),
-                  Text('Total a pagar: \$${_calcularTotal()}',
-                      style: TextStyle(color: Color(0xFF004D40))),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _vaciarCarrito();
-                        Navigator.pop(
-                            context); // Cierra el carrito cuando se vacía
-                      });
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF004D40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: EdgeInsets.symmetric(
-                          vertical: MediaQuery.of(context).size.height * 0.02),
-                      minimumSize: Size(double.infinity,
-                          MediaQuery.of(context).size.height * 0.05),
-                    ),
-                    child: Text('Vaciar carrito',
-                        style: TextStyle(color: Colors.white)),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                  ElevatedButton(
-                    onPressed: () {
-                      _confirmarVenta();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF004D40),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      padding: EdgeInsets.symmetric(
-                          vertical: MediaQuery.of(context).size.height * 0.02),
-                      minimumSize: Size(double.infinity,
-                          MediaQuery.of(context).size.height * 0.05),
-                    ),
-                    child: Text('Confirmar venta',
-                        style: TextStyle(color: Colors.white)),
-                  ),
-                  SizedBox(height: MediaQuery.of(context).size.height * 0.02),
-                ],
-              ),
-            );
-          },
-        );
-      },
-    );
-  }
 
   void _mostrarDialogoCambiarCarrito() {
     showDialog(
@@ -809,6 +794,14 @@ class _CobroPageState extends State<CobroPage> {
                               SizedBox(height: 4.0),
                               Text(
                                 'Precio: \$${producto['precio']}',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14.0,
+                                ),
+                              ),
+                              SizedBox(height: 4.0),
+                              Text(
+                                'Cantidad disponible: ${producto['stock']}',
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 14.0,

@@ -269,6 +269,15 @@ class _CatalogoPageState extends State<CatalogoPage> {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => Navigator.pop(context),
         ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh),
+            onPressed: () {
+              _loadCategorias();
+              _loadProductos();
+            },
+          ),
+        ],
       ),
       body: Padding(
         padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
