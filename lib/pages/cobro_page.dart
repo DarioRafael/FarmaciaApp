@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 
-
 class CobroPage extends StatefulWidget {
   const CobroPage({super.key});
 
@@ -16,16 +15,18 @@ class _CobroPageState extends State<CobroPage> {
   int _carritoActivo = -1; // Índice del carrito activo
   List<Map<String, dynamic>> _productosFiltrados = [];
   String _query = '';
+  List<String> _categorias = ['Todos'];
+  String _categoriaSeleccionada = 'Todos';
   final TextEditingController _searchController = TextEditingController();
 
   final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_filtrarProductos);
     _loadProductos();
+    _loadCategorias();
   }
 
   Future<void> _loadProductos() async {
@@ -44,6 +45,7 @@ class _CobroPageState extends State<CobroPage> {
             productosUnicos[id] = {
               'nombre': p['Nombre'],
               'precio': p['Precio'].toDouble(),
+              'categoria': p['Categoria'],
             };
           }
         }
@@ -59,21 +61,40 @@ class _CobroPageState extends State<CobroPage> {
     }
   }
 
+  Future<void> _loadCategorias() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/categorias'));
+      if (response.statusCode == 200) {
+        final List<dynamic> categorias = json.decode(response.body);
+        final Set<String> categoriasUnicas = {
+          ...categorias.map((c) => c['Nombre'].toString())
+        };
+        setState(() {
+          _categorias = categoriasUnicas.toList()..sort();
+          _categorias.insert(0, 'Todos'); // Insertar "Todos" al inicio
+        });
+      }
+    } catch (e) {
+      _mostrarNotificacion('Error al cargar categorias');
+    }
+  }
+
   void _filtrarProductos() {
     setState(() {
       _query = _searchController.text;
-      if (_query.isEmpty) {
+      if (_query.isEmpty && _categoriaSeleccionada == 'Todos') {
         _productosFiltrados = _productos;
       } else {
         _productosFiltrados = _productos.where((producto) {
           final nombreProducto = producto['nombre'] as String;
-          return nombreProducto.toLowerCase().contains(_query.toLowerCase());
+          final categoriaProducto = producto['categoria'] as String;
+          return nombreProducto.toLowerCase().contains(_query.toLowerCase()) &&
+              (_categoriaSeleccionada == 'Todos' ||
+                  categoriaProducto == _categoriaSeleccionada);
         }).toList();
       }
     });
   }
-
-
 
   void _mostrarNotificacion(String mensaje) {
     final overlay = Overlay.of(context);
@@ -109,7 +130,7 @@ class _CobroPageState extends State<CobroPage> {
     });
   }
 
-  void _agregarAlCarrito(String nombreProducto) {
+  void _agregarAlCarrito(Map<String, dynamic> producto) {
     setState(() {
       if (_carritoActivo == -1) {
         _carritos.add({});
@@ -117,17 +138,21 @@ class _CobroPageState extends State<CobroPage> {
       }
       final carritoActual = _carritos[_carritoActivo];
 
-      if (carritoActual.containsKey(nombreProducto)) {
-        carritoActual[nombreProducto] = carritoActual[nombreProducto]! + 1;
-        _mostrarNotificacion('Actualizada la cantidad de $nombreProducto.');
+      if (carritoActual.containsKey(producto['nombre'])) {
+        carritoActual[producto['nombre']] =
+            carritoActual[producto['nombre']]! + 1;
+        _mostrarNotificacion(
+            'Actualizada la cantidad de ${producto['nombre']}.');
       } else {
-        carritoActual[nombreProducto] = 1;
-        _mostrarNotificacion('Agregado $nombreProducto al carrito.');
+        carritoActual[producto['nombre']] = 1;
+        _mostrarNotificacion('Agregado ${producto['nombre']} al carrito.');
       }
 
       _productosFiltrados = _productos
           .where((producto) =>
-              producto['nombre'].toLowerCase().contains(_query.toLowerCase()))
+              producto['nombre'].toLowerCase().contains(_query.toLowerCase()) &&
+              (_categoriaSeleccionada == 'Todos' ||
+                  producto['categoria'] == _categoriaSeleccionada))
           .toList(); // Actualiza la lista filtrada
 
       if (_carritos.isNotEmpty) {
@@ -194,10 +219,11 @@ class _CobroPageState extends State<CobroPage> {
   int _contarUnidades() {
     if (_carritoActivo != -1) {
       final carritoActual = _carritos[_carritoActivo];
-      return carritoActual.values.fold(0, (sum, cantidad) => sum + (cantidad as int));    }
+      return carritoActual.values
+          .fold(0, (sum, cantidad) => sum + (cantidad as int));
+    }
     return 0;
   }
-
 
   void _mostrarCarrito() {
     showModalBottomSheet(
@@ -619,21 +645,19 @@ class _CobroPageState extends State<CobroPage> {
     );
   }
 
+  @override
   Widget build(BuildContext context) {
+    final screenWidth = MediaQuery.of(context).size.width;
+    final isSmallScreen = screenWidth < 600;
+
     return Scaffold(
       appBar: AppBar(
-        title: Text(
-          'Cobro',
-          style: TextStyle(color: Colors.white),
-        ),
+        title: Text('Cobro', style: TextStyle(color: Colors.white)),
         backgroundColor: Color(0xFF004D40),
         actions: [
           if (_carritos.isNotEmpty) ...[
             TextButton(
               onPressed: _agregarNuevoCarrito,
-              style: ButtonStyle(
-                //backgroundColor: MaterialStateProperty.all(Colors.green), // Color de fondo del botón
-              ),
               child: Row(
                 children: [
                   Text('+', style: TextStyle(color: Colors.white, fontSize: 28)),
@@ -644,9 +668,6 @@ class _CobroPageState extends State<CobroPage> {
             ),
             TextButton(
               onPressed: _mostrarDialogoCambiarCarrito,
-              style: ButtonStyle(
-                //backgroundColor: MaterialStateProperty.all(Colors.green), // Color de fondo del botón
-              ),
               child: Row(
                 children: [
                   Text('⇄', style: TextStyle(color: Colors.white, fontSize: 24)),
@@ -658,51 +679,196 @@ class _CobroPageState extends State<CobroPage> {
           ],
         ],
       ),
-      body: Column(
-        children: [
-          Padding(
-            padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Buscar producto',
-                border: OutlineInputBorder(),
-                prefixIcon: Icon(Icons.search),
+      body: Padding(
+        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
+        child: Column(
+          children: [
+            if (isSmallScreen) ...[
+              TextField(
+                controller: _searchController,
+                decoration: InputDecoration(
+                  hintText: 'Buscar producto',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  prefixIcon: Icon(Icons.search),
+                ),
               ),
-            ),
-          ),
-          Expanded(
-            child: ListView.builder(
-              itemCount: _productosFiltrados.length,
-              itemBuilder: (context, index) {
-                final producto = _productosFiltrados[index];
-                return ListTile(
-                  title: Text(producto['nombre']),
-                  subtitle: Text('Precio: \$${producto['precio']}'),
-                  trailing: ElevatedButton(
-                    onPressed: () => _agregarAlCarrito(producto['nombre']),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Color(0xFF004D40),
-                    ),
-                    child: Text(
-                      'Agregar',
-                      style: TextStyle(color: Colors.white),
+              SizedBox(height: 16.0),
+              Container(
+                margin: EdgeInsets.only(bottom: 8.0),
+                padding: EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.grey.shade300),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<String>(
+                    isExpanded: true,
+                    value: _categoriaSeleccionada,
+                    items: _categorias.map((categoria) {
+                      return DropdownMenuItem<String>(
+                        value: categoria,
+                        child: Text(categoria),
+                      );
+                    }).toList(),
+                    onChanged: (valor) {
+                      setState(() {
+                        _categoriaSeleccionada = valor!;
+                        _filtrarProductos();
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ] else ...[
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Buscar producto',
+                        border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        prefixIcon: Icon(Icons.search),
+                      ),
                     ),
                   ),
-                );
-              },
+                  SizedBox(width: 16.0),
+                  Container(
+                    margin: EdgeInsets.only(bottom: 8.0),
+                    padding: EdgeInsets.symmetric(horizontal: 12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: Colors.grey.shade300),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _categoriaSeleccionada,
+                        items: _categorias.map((categoria) {
+                          return DropdownMenuItem<String>(
+                            value: categoria,
+                            child: Text(categoria),
+                          );
+                        }).toList(),
+                        onChanged: (valor) {
+                          setState(() {
+                            _categoriaSeleccionada = valor!;
+                            _filtrarProductos();
+                          });
+                        },
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            Expanded(
+              child: GridView.builder(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: isSmallScreen ? 2 : 4, // Más columnas en pantallas grandes
+                  childAspectRatio: 0.7, // Ajusta la relación de aspecto
+                ),
+                itemCount: _productosFiltrados.length,
+                itemBuilder: (context, index) {
+                  final producto = _productosFiltrados[index];
+                  return Card(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Container(
+                            width: double.infinity,
+                            color: Colors.lightGreen, // Color piel suave
+                            child: Center(
+                              child: Text(
+                                producto['nombre'][0], // Primera letra del nombre del producto
+                                style: TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 40,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        Padding(
+                          padding: EdgeInsets.all(8.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                producto['nombre'],
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16.0,
+                                ),
+                              ),
+                              SizedBox(height: 4.0),
+                              Text(
+                                'Precio: \$${producto['precio']}',
+                                style: TextStyle(
+                                  color: Colors.grey[600],
+                                  fontSize: 14.0,
+                                ),
+                              ),
+                              SizedBox(height: 8.0),
+                              ElevatedButton(
+                                onPressed: () => _agregarAlCarrito(producto),
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Color(0xFF004D40),
+                                ),
+                                child: Text(
+                                  'Agregar',
+                                  style: TextStyle(color: Colors.white),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
       floatingActionButton: _carritos.isNotEmpty
-          ? FloatingActionButton(
-        onPressed: _mostrarCarrito,
-        backgroundColor: Color(0xFF004D40),
-        child: Icon(Icons.shopping_cart, color: Colors.white),
+          ? Padding(
+        padding: EdgeInsets.only(right: 16.0),
+        child: ElevatedButton(
+          onPressed: _mostrarCarrito,
+          style: ElevatedButton.styleFrom(
+            backgroundColor: Color(0xFF004D40),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(30.0),
+            ),
+            padding: EdgeInsets.symmetric(
+              horizontal: isSmallScreen ? 20.0 : 32.0,
+              vertical: isSmallScreen ? 12.0 : 16.0,
+            ),
+            textStyle: TextStyle(
+              fontSize: isSmallScreen ? 16.0 : 20.0,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          child: Row(
+            children: [
+              Icon(Icons.shopping_cart, color: Colors.white),
+              SizedBox(width: 8.0),
+              Text(
+                'Cobrar (${_contarUnidades()})',
+                style: TextStyle(color: Colors.white),
+              ),
+            ],
+          ),
+        ),
       )
           : null,
     );
   }
 }
-
