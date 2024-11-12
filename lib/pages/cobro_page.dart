@@ -1,4 +1,7 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+
 
 class CobroPage extends StatefulWidget {
   const CobroPage({super.key});
@@ -8,29 +11,69 @@ class CobroPage extends StatefulWidget {
 }
 
 class _CobroPageState extends State<CobroPage> {
-  final List<Map<String, dynamic>> _productos = [
-    {'nombre': 'Lapiceros', 'precio': 3.09},
-    {'nombre': 'Regla', 'precio': 10.90},
-    {'nombre': 'Cuaderno profesional', 'precio': 45.00},
-    {'nombre': 'Marcadores', 'precio': 85.50},
-    {'nombre': 'Pegamento', 'precio': 15.00},
-    {'nombre': 'Tijeras', 'precio': 25.30},
-    {'nombre': 'Papel bond', 'precio': 95.00},
-    {'nombre': 'Goma de borrar', 'precio': 5.50},
-    {'nombre': 'Lápiz 2B', 'precio': 12.00},
-    {'nombre': 'Clips', 'precio': 1.50},
-  ];
-
-  final List<Map<String, int>> _carritos = [];
+  final List<Map<String, dynamic>> _productos = [];
+  final List<Map<String, dynamic>> _carritos = [];
   int _carritoActivo = -1; // Índice del carrito activo
   List<Map<String, dynamic>> _productosFiltrados = [];
   String _query = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+
 
   @override
   void initState() {
     super.initState();
-    _productosFiltrados = _productos; // Inicializa la lista filtrada
+    _searchController.addListener(_filtrarProductos);
+    _loadProductos();
   }
+
+  Future<void> _loadProductos() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/productos'));
+      if (response.statusCode == 200) {
+        final List<dynamic> productos = json.decode(response.body);
+
+        // Usar un Map temporal para detectar y eliminar duplicados por ID
+        final Map<int, Map<String, dynamic>> productosUnicos = {};
+
+        for (var p in productos) {
+          final id = p['IDProductos'];
+          // Solo guarda el producto si no existe uno con ese ID
+          if (!productosUnicos.containsKey(id)) {
+            productosUnicos[id] = {
+              'nombre': p['Nombre'],
+              'precio': p['Precio'].toDouble(),
+            };
+          }
+        }
+
+        setState(() {
+          // Convertir el Map de productos únicos a List
+          _productos.addAll(productosUnicos.values.toList());
+          _productosFiltrados = _productos;
+        });
+      }
+    } catch (e) {
+      _mostrarNotificacion('Error al cargar productos');
+    }
+  }
+
+  void _filtrarProductos() {
+    setState(() {
+      _query = _searchController.text;
+      if (_query.isEmpty) {
+        _productosFiltrados = _productos;
+      } else {
+        _productosFiltrados = _productos.where((producto) {
+          final nombreProducto = producto['nombre'] as String;
+          return nombreProducto.toLowerCase().contains(_query.toLowerCase());
+        }).toList();
+      }
+    });
+  }
+
+
 
   void _mostrarNotificacion(String mensaje) {
     final overlay = Overlay.of(context);
@@ -151,24 +194,10 @@ class _CobroPageState extends State<CobroPage> {
   int _contarUnidades() {
     if (_carritoActivo != -1) {
       final carritoActual = _carritos[_carritoActivo];
-      return carritoActual.values.fold(0, (sum, cantidad) => sum + cantidad);
-    }
+      return carritoActual.values.fold(0, (sum, cantidad) => sum + (cantidad as int));    }
     return 0;
   }
 
-  void _filtrarProductos(String query) {
-    setState(() {
-      _query = query;
-      if (query.isEmpty) {
-        _productosFiltrados = _productos;
-      } else {
-        _productosFiltrados = _productos.where((producto) {
-          final nombreProducto = producto['nombre'] as String;
-          return nombreProducto.toLowerCase().contains(query.toLowerCase());
-        }).toList();
-      }
-    });
-  }
 
   void _mostrarCarrito() {
     showModalBottomSheet(
@@ -590,7 +619,6 @@ class _CobroPageState extends State<CobroPage> {
     );
   }
 
-  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -635,12 +663,12 @@ class _CobroPageState extends State<CobroPage> {
           Padding(
             padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
             child: TextField(
+              controller: _searchController,
               decoration: InputDecoration(
                 hintText: 'Buscar producto',
                 border: OutlineInputBorder(),
                 prefixIcon: Icon(Icons.search),
               ),
-              onChanged: _filtrarProductos,
             ),
           ),
           Expanded(
@@ -669,11 +697,12 @@ class _CobroPageState extends State<CobroPage> {
       ),
       floatingActionButton: _carritos.isNotEmpty
           ? FloatingActionButton(
-              onPressed: _mostrarCarrito,
-              backgroundColor: Color(0xFF004D40),
-              child: Icon(Icons.shopping_cart, color: Colors.white),
-            )
+        onPressed: _mostrarCarrito,
+        backgroundColor: Color(0xFF004D40),
+        child: Icon(Icons.shopping_cart, color: Colors.white),
+      )
           : null,
     );
   }
 }
+

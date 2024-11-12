@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
 
 class CatalogoPage extends StatefulWidget {
   const CatalogoPage({Key? key}) : super(key: key);
@@ -10,23 +12,73 @@ class CatalogoPage extends StatefulWidget {
 class _CatalogoPageState extends State<CatalogoPage> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'Todos';
-  final List<String> _filterOptions = ['Todos', 'Útiles escolares', 'Papelería', 'Oficina', 'Arte'];
+  List<String> _filterOptions = ['Todos'];
 
-  // Lista completa de productos
-  final List<Map<String, dynamic>> _allProducts = [
-    {'producto': 'Lapiceros', 'categoria': 'Útiles escolares', 'stock': 239, 'precio': 3.09},
-    {'producto': 'Regla', 'categoria': 'Útiles escolares', 'stock': 109, 'precio': 10.90},
-    {'producto': 'Cuaderno profesional', 'categoria': 'Papelería', 'stock': 150, 'precio': 45.00},
-    {'producto': 'Marcadores', 'categoria': 'Arte', 'stock': 85, 'precio': 85.50},
-    {'producto': 'Pegamento', 'categoria': 'Útiles escolares', 'stock': 200, 'precio': 15.00},
-    {'producto': 'Tijeras', 'categoria': 'Oficina', 'stock': 75, 'precio': 25.30},
-    {'producto': 'Papel bond', 'categoria': 'Papelería', 'stock': 500, 'precio': 95.00},
-    {'producto': 'Goma de borrar', 'categoria': 'Útiles escolares', 'stock': 300, 'precio': 5.50},
-    {'producto': 'Lápiz 2B', 'categoria': 'Arte', 'stock': 120, 'precio': 12.00},
-    {'producto': 'Clips', 'categoria': 'Oficina', 'stock': 1000, 'precio': 1.50},
-  ];
-
+  List<Map<String, dynamic>> _allProducts = [];
   List<Map<String, dynamic>> _filteredProducts = [];
+
+  final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+
+  @override
+  void initState() {
+    super.initState();
+    _searchController.addListener(_filterProducts);
+    _loadCategorias();
+    _loadProductos();
+  }
+
+  Future<void> _loadCategorias() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/categorias'));
+      if (response.statusCode == 200) {
+        final List<dynamic> categorias = json.decode(response.body);
+        // Usar Set para eliminar duplicados
+        final Set<String> categoriasUnicas = {
+          ...categorias.map((c) => c['Nombre'].toString())
+        };
+        setState(() {
+          _filterOptions = categoriasUnicas.toList()..sort();
+          _filterOptions.insert(0, 'Todos'); // Insertar "Todos" al inicio
+        });
+      }
+    } catch (e) {
+      _showErrorDialog('Error al cargar categorías');
+    }
+  }
+
+  Future<void> _loadProductos() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/productos'));
+      if (response.statusCode == 200) {
+        final List<dynamic> productos = json.decode(response.body);
+
+        // Usar un Map temporal para detectar y eliminar duplicados por ID
+        final Map<int, Map<String, dynamic>> productosUnicos = {};
+
+        for (var p in productos) {
+          final id = p['IDProductos'];
+          // Solo guarda el producto si no existe uno con ese ID
+          if (!productosUnicos.containsKey(id)) {
+            productosUnicos[id] = {
+              'id': id,
+              'producto': p['Nombre'],
+              'categoria': p['Categoria'],
+              'stock': p['Stock'],
+              'precio': p['Precio'].toDouble(),
+            };
+          }
+        }
+
+        setState(() {
+          // Convertir el Map de productos únicos a List
+          _allProducts = productosUnicos.values.toList();
+          _filterProducts();
+        });
+      }
+    } catch (e) {
+      _showErrorDialog('Error al cargar productos');
+    }
+  }
 
   void _sortProducts() {
     _filteredProducts.sort((a, b) {
@@ -38,22 +90,15 @@ class _CatalogoPageState extends State<CatalogoPage> {
     });
   }
 
-  @override
-  void initState() {
-    super.initState();
-    _filteredProducts = _allProducts;
-    _searchController.addListener(_filterProducts);
-    _sortProducts();
-  }
-
   void _filterProducts() {
     final query = _searchController.text.toLowerCase();
     setState(() {
       _filteredProducts = _allProducts.where((product) {
-        final matchesQuery = product['producto'].toString().toLowerCase().contains(query) ||
-            product['categoria'].toString().toLowerCase().contains(query) ||
-            product['precio'].toString().contains(query) ||
-            product['stock'].toString().contains(query);
+        final matchesQuery =
+            product['producto'].toString().toLowerCase().contains(query) ||
+                product['categoria'].toString().toLowerCase().contains(query) ||
+                product['precio'].toString().contains(query) ||
+                product['stock'].toString().contains(query);
 
         final matchesCategory = _selectedFilter == 'Todos' ||
             product['categoria'] == _selectedFilter;
@@ -80,6 +125,21 @@ class _CatalogoPageState extends State<CatalogoPage> {
     }
 
     return groupedProducts;
+  }
+  void _showErrorDialog(String message) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Error'),
+        content: Text(message),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen) {

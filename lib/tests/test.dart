@@ -34,11 +34,11 @@ class _InventarioPageState extends State<InventarioPage> {
         final List<dynamic> categorias = json.decode(response.body);
         // Usar Set para eliminar duplicados
         final Set<String> categoriasUnicas = {
+          'Todos',
           ...categorias.map((c) => c['Nombre'].toString())
         };
         setState(() {
           _filterOptions = categoriasUnicas.toList()..sort();
-          _filterOptions.insert(0, 'Todos'); // Insertar "Todos" al inicio
         });
       }
     } catch (e) {
@@ -229,7 +229,8 @@ class _InventarioPageState extends State<InventarioPage> {
     );
   }
 
-  Widget _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen) {
+  Widget _buildProductTable(
+      List<Map<String, dynamic>> products, bool isSmallScreen) {
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
@@ -238,7 +239,7 @@ class _InventarioPageState extends State<InventarioPage> {
         ),
         child: DataTable(
           columnSpacing: isSmallScreen ? 20 : 56.0,
-          dataRowHeight: null, // Permite que la altura se ajuste al contenido
+          dataRowHeight: null,
           headingRowHeight: isSmallScreen ? 48 : 56.0,
           horizontalMargin: isSmallScreen ? 12 : 24.0,
           columns: [
@@ -251,7 +252,6 @@ class _InventarioPageState extends State<InventarioPage> {
                 ),
               ),
               tooltip: 'Nombre del producto',
-              // Asigna un tercio del espacio disponible
               onSort: null,
             ),
             DataColumn(
@@ -330,7 +330,8 @@ class _InventarioPageState extends State<InventarioPage> {
                           color: Colors.blue,
                           size: isSmallScreen ? 20 : 24,
                         ),
-                        onPressed: () => _mostrarFormularioEditarProducto(producto),
+                        onPressed: () =>
+                            _mostrarFormularioEditarProducto(producto),
                       ),
                       IconButton(
                         icon: Icon(
@@ -346,177 +347,6 @@ class _InventarioPageState extends State<InventarioPage> {
               ],
             );
           }).toList(),
-        ),
-      ),
-    );
-  }
-  @override
-  Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
-    final groupedProducts = _groupProductsByCategory();
-
-    // Ordena las claves del mapa alfabéticamente
-    final sortedCategories = groupedProducts.keys.toList()..sort();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Inventario'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const SizedBox(height: 20),
-            if (isSmallScreen) ...[
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Buscar producto',
-                  prefixIcon: const Icon(Icons.search),
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                ),
-              ),
-              const SizedBox(height: 8),
-              Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12),
-                      decoration: BoxDecoration(
-                        border: Border.all(color: Colors.grey.shade300),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: DropdownButtonHideUnderline(
-                        child: DropdownButton<String>(
-                          isExpanded: true,
-                          value: _selectedFilter,
-                          items: _filterOptions.map((String value) {
-                            return DropdownMenuItem<String>(
-                              value: value,
-                              child: Text(value),
-                            );
-                          }).toList(),
-                          onChanged: (String? newValue) {
-                            setState(() {
-                              _selectedFilter = newValue!;
-                              _filterProducts();
-                            });
-                          },
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ElevatedButton.icon(
-                    onPressed: _mostrarFormularioAgregarProducto,
-                    icon: Icon(Icons.add, size: isSmallScreen ? 20 : 24),
-                    label: const Text('Añadir'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: isSmallScreen ? 12 : 16,
-                        vertical: isSmallScreen ? 8 : 12,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar producto',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedFilter,
-                        items: _filterOptions.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedFilter = newValue!;
-                            _filterProducts();
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _mostrarFormularioAgregarProducto,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Añadir producto'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 20),
-            Expanded(
-              child: ListView.builder(
-                itemCount: sortedCategories.length,
-                itemBuilder: (context, index) {
-                  String category = sortedCategories[index];
-                  List<Map<String, dynamic>> products = groupedProducts[category]!;
-
-                  return Card(
-                    margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Padding(
-                          padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
-                          child: Text(
-                            category,
-                            style: TextStyle(
-                              fontSize: isSmallScreen ? 18 : 22,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                        _buildProductTable(products, isSmallScreen),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
         ),
       ),
     );
@@ -769,6 +599,96 @@ class _InventarioPageState extends State<InventarioPage> {
           ],
         );
       },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isSmallScreen = MediaQuery.of(context).size.width < 600;
+    final groupedProducts = _groupProductsByCategory();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Inventario'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.add),
+            onPressed: _mostrarFormularioAgregarProducto,
+          ),
+        ],
+      ),
+      body: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _searchController,
+                    decoration: const InputDecoration(
+                      hintText: 'Buscar productos...',
+                      prefixIcon: Icon(Icons.search),
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 16),
+                // Modificar el DropdownButton en el build method
+                DropdownButton<String>(
+                  value: _selectedFilter,
+                  items: _filterOptions.map((String value) {
+                    return DropdownMenuItem<String>(
+                      value: value,
+                      child: Text(value),
+                    );
+                  }).toList(),
+                  onChanged: (String? newValue) {
+                    if (newValue != null) {
+                      setState(() {
+                        _selectedFilter = newValue;
+                        _filterProducts();
+                      });
+                    }
+                  },
+                  hint: const Text(
+                      'Seleccionar categoría'), // Añadir hint para cuando no hay valor seleccionado
+                ),
+              ],
+            ),
+          ),
+          Expanded(
+            child: groupedProducts.isEmpty
+                ? const Center(
+              child: Text('No se encontraron productos'),
+            )
+                : ListView.builder(
+              itemCount: groupedProducts.length,
+              itemBuilder: (context, index) {
+                final category = groupedProducts.keys.elementAt(index);
+                final products = groupedProducts[category]!;
+
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    if (_selectedFilter == 'Todos') ...[
+                      Padding(
+                        padding: const EdgeInsets.all(16.0),
+                        child: Text(
+                          category,
+                          style: Theme.of(context).textTheme.titleLarge,
+                        ),
+                      ),
+                    ],
+                    _buildProductTable(products, isSmallScreen),
+                    const SizedBox(height: 16),
+                  ],
+                );
+              },
+            ),
+          ),
+        ],
+      ),
     );
   }
 
