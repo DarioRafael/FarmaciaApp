@@ -18,6 +18,7 @@ class _CatalogoPageState extends State<CatalogoPage> {
   List<Map<String, dynamic>> _filteredProducts = [];
 
   final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+  bool _isLoading = false;
 
   @override
   void initState() {
@@ -47,6 +48,10 @@ class _CatalogoPageState extends State<CatalogoPage> {
   }
 
   Future<void> _loadProductos() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final response = await http.get(Uri.parse('$baseUrl/productos'));
       if (response.statusCode == 200) {
@@ -77,6 +82,10 @@ class _CatalogoPageState extends State<CatalogoPage> {
       }
     } catch (e) {
       _showErrorDialog('Error al cargar productos');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
     }
   }
 
@@ -143,6 +152,10 @@ class _CatalogoPageState extends State<CatalogoPage> {
   }
 
   Widget _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen) {
+    double productWidth = isSmallScreen ? 100 : 200;
+    double stockWidth = isSmallScreen ? 50 : 100;
+    double priceWidth = isSmallScreen ? 50 : 100;
+
     return SingleChildScrollView(
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
@@ -151,46 +164,57 @@ class _CatalogoPageState extends State<CatalogoPage> {
         ),
         child: DataTable(
           columnSpacing: isSmallScreen ? 20 : 56.0,
-          dataRowHeight: null, // Permite que la altura se ajuste al contenido
-          headingRowHeight: isSmallScreen ? 48 : 56.0,
           horizontalMargin: isSmallScreen ? 12 : 24.0,
           columns: [
             DataColumn(
-              label: Text(
-                'Producto',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
-                  fontWeight: FontWeight.bold,
+              label: SizedBox(
+                width: productWidth,
+                child: Text(
+                  'Producto',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
               tooltip: 'Nombre del producto',
-              // Asigna un tercio del espacio disponible
-              onSort: null,
             ),
             DataColumn(
-              label: Text(
-                'Stock',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
-                  fontWeight: FontWeight.bold,
+              label: SizedBox(
+                width: stockWidth,
+                child: Text(
+                  'Stock',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.right,
                 ),
               ),
               tooltip: 'Cantidad disponible',
               numeric: true,
             ),
             DataColumn(
-              label: Text(
-                'Precio',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 14 : 16,
-                  fontWeight: FontWeight.bold,
+              label: SizedBox(
+                width: priceWidth,
+                child: Text(
+                  'Precio',
+                  style: TextStyle(
+                    fontSize: isSmallScreen ? 14 : 16,
+                    fontWeight: FontWeight.bold,
+                  ),
+                  textAlign: TextAlign.right,
                 ),
               ),
               tooltip: 'Precio unitario',
               numeric: true,
             ),
             const DataColumn(
-              label: Text(''),
+              label: SizedBox(
+                width: 100,
+                child: Text(''),
+              ),
             ),
           ],
           rows: products.map((producto) {
@@ -198,22 +222,18 @@ class _CatalogoPageState extends State<CatalogoPage> {
               cells: [
                 DataCell(
                   Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.3,
-                    ),
+                    width: productWidth,
                     child: Text(
                       producto['producto'],
                       style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
-                      overflow: TextOverflow.visible,
+                      maxLines: null, // No limitar el número de líneas
                       softWrap: true,
                     ),
                   ),
                 ),
                 DataCell(
-                  Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.15,
-                    ),
+                  SizedBox(
+                    width: stockWidth,
                     child: Text(
                       producto['stock'].toString(),
                       style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
@@ -222,10 +242,8 @@ class _CatalogoPageState extends State<CatalogoPage> {
                   ),
                 ),
                 DataCell(
-                  Container(
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.of(context).size.width * 0.15,
-                    ),
+                  SizedBox(
+                    width: priceWidth,
                     child: Text(
                       '\$${producto['precio'].toStringAsFixed(2)}',
                       style: TextStyle(fontSize: isSmallScreen ? 13 : 15),
@@ -258,8 +276,6 @@ class _CatalogoPageState extends State<CatalogoPage> {
     final screenWidth = MediaQuery.of(context).size.width;
     final isSmallScreen = screenWidth < 600;
     final groupedProducts = _groupProductsByCategory();
-
-    // Ordena las claves del mapa alfabéticamente
     final sortedCategories = groupedProducts.keys.toList()..sort();
 
     return Scaffold(
@@ -279,7 +295,9 @@ class _CatalogoPageState extends State<CatalogoPage> {
           ),
         ],
       ),
-      body: Padding(
+      body: _isLoading
+          ? Center(child: CircularProgressIndicator())
+          : Padding(
         padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

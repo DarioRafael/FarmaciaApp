@@ -6,6 +6,7 @@ import 'catalogo_page.dart';
 import 'inventario_page.dart';
 import 'reportes_page.dart';
 import 'login_page.dart';
+import 'rebastecimiento_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -35,6 +36,7 @@ class _HomePageState extends State<HomePage> {
       {'title': 'Cobrar', 'icon': Icons.attach_money, 'page': CobroPage()},
       {'title': 'Catálogo', 'icon': Icons.inventory, 'page': CatalogoPage()},
       {'title': 'Inventario', 'icon': Icons.storage, 'page': InventarioPage()},
+      {'title': 'Rebastecimientos', 'icon': Icons.storage, 'page': ReabastecimientosPage()},
       {'title': 'Reportes', 'icon': Icons.analytics, 'page': ReportesPage()},
       {'title': 'Usuarios', 'icon': Icons.verified_user, 'page': UsuariosPage()},
     ];
