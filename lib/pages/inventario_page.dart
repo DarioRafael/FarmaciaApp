@@ -18,6 +18,9 @@ class _InventarioPageState extends State<InventarioPage> {
   List<Map<String, dynamic>> _filteredProducts = [];
 
   final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+  double availableMoney = 0.0;
+  double ingresos = 0.0;
+  double egresos = 0.0;
   bool _isLoading = false;
 
   @override
@@ -26,6 +29,7 @@ class _InventarioPageState extends State<InventarioPage> {
     _searchController.addListener(_filterProducts);
     _loadCategorias();
     _loadProductos();
+    _fetchSaldo();
   }
 
   Future<void> _loadCategorias() async {
@@ -38,7 +42,8 @@ class _InventarioPageState extends State<InventarioPage> {
           ...categorias.map((c) => c['Nombre'].toString())
         };
         setState(() {
-          _filterOptions = categoriasUnicas.toList()..sort();
+          _filterOptions = categoriasUnicas.toList()
+            ..sort();
           _filterOptions.insert(0, 'Todos'); // Insertar "Todos" al inicio
         });
       }
@@ -61,7 +66,6 @@ class _InventarioPageState extends State<InventarioPage> {
 
         for (var p in productos) {
           final id = p['IDProductos'];
-          // Solo guarda el producto si no existe uno con ese ID
           if (!productosUnicos.containsKey(id)) {
             productosUnicos[id] = {
               'id': id,
@@ -86,6 +90,44 @@ class _InventarioPageState extends State<InventarioPage> {
       setState(() {
         _isLoading = false;
       });
+    }
+  }
+
+  Future<void> _fetchSaldo() async {
+    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    final String saldoEndpoint = '/saldo';
+
+    try {
+      final response = await http.get(Uri.parse('$baseUrl$saldoEndpoint'));
+
+      if (response.statusCode == 200) {
+        // Verifica la respuesta antes de intentar decodificarla
+        final dynamic data = json.decode(response.body);
+
+        // Agrega un log para ver qué tipo de datos estás recibiendo
+        print('Respuesta recibida: $data');
+
+        // Cambia la verificación para aceptar un objeto en lugar de una lista
+        if (data is Map<String, dynamic> && data.containsKey('baseSaldo')) {
+          setState(() {
+            availableMoney = data['baseSaldo'].toDouble();
+            ingresos = data['totalIngresos'].toDouble();
+            egresos = data['totalEgresos'].toDouble();
+            _isLoading = false;
+          });
+        } else {
+          throw Exception('Formato inesperado o campo "saldo" no encontrado');
+        }
+      } else {
+        throw Exception('Failed to load saldo');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar el saldo: $e')),
+      );
     }
   }
 
@@ -157,7 +199,6 @@ class _InventarioPageState extends State<InventarioPage> {
 
   Future<void> _actualizarProducto(Map<String, dynamic> producto, String nombre,
       String categoria, String precio, String stock) async {
-
     setState(() {
       _isLoading = true;
     });
@@ -200,8 +241,8 @@ class _InventarioPageState extends State<InventarioPage> {
     }
   }
 
-  Future<void> _agregarProducto(
-      String nombre, String categoria, String precio, String stock) async {
+  Future<void> _agregarProducto(String nombre, String categoria, String precio,
+      String stock) async {
     // Verificar si ya existe un producto con el mismo nombre
     final productoExistente = _allProducts.any(
             (p) => p['producto'].toLowerCase() == nombre.toLowerCase());
@@ -236,20 +277,22 @@ class _InventarioPageState extends State<InventarioPage> {
   void _showErrorDialog(String message) {
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Error'),
-        content: Text(message),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('OK'),
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Error'),
+            content: Text(message),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('OK'),
+              ),
+            ],
           ),
-        ],
-      ),
     );
   }
 
-  Widget _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen) {
+  Widget _buildProductTable(List<Map<String, dynamic>> products,
+      bool isSmallScreen) {
     double productWidth = isSmallScreen ? 100 : 200;
     double stockWidth = isSmallScreen ? 50 : 100;
     double priceWidth = isSmallScreen ? 50 : 100;
@@ -258,7 +301,10 @@ class _InventarioPageState extends State<InventarioPage> {
       scrollDirection: Axis.horizontal,
       child: ConstrainedBox(
         constraints: BoxConstraints(
-          minWidth: MediaQuery.of(context).size.width,
+          minWidth: MediaQuery
+              .of(context)
+              .size
+              .width,
         ),
         child: DataTable(
           columnSpacing: isSmallScreen ? 20 : 56.0,
@@ -358,7 +404,8 @@ class _InventarioPageState extends State<InventarioPage> {
                         color: Colors.black,
                         size: isSmallScreen ? 20 : 24,
                       ),
-                      itemBuilder: (context) => [
+                      itemBuilder: (context) =>
+                      [
                         PopupMenuItem(
                           value: 1,
                           child: ListTile(
@@ -374,7 +421,8 @@ class _InventarioPageState extends State<InventarioPage> {
                         PopupMenuItem(
                           value: 2,
                           child: ListTile(
-                            leading: Icon(Icons.attach_money, color: Colors.green),
+                            leading: Icon(
+                                Icons.attach_money, color: Colors.green),
                             title: Text('Reabastecer'),
                             contentPadding: EdgeInsets.zero,
                             onTap: () {
@@ -386,7 +434,8 @@ class _InventarioPageState extends State<InventarioPage> {
                         PopupMenuItem(
                           value: 3,
                           child: ListTile(
-                            leading: Icon(Icons.delete_outline, color: Colors.red),
+                            leading: Icon(
+                                Icons.delete_outline, color: Colors.red),
                             title: Text('Eliminar'),
                             contentPadding: EdgeInsets.zero,
                             onTap: () {
@@ -408,15 +457,16 @@ class _InventarioPageState extends State<InventarioPage> {
   }
 
 
-
-
-
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
     final isSmallScreen = screenWidth < 600;
     final groupedProducts = _groupProductsByCategory();
-    final sortedCategories = groupedProducts.keys.toList()..sort();
+    final sortedCategories = groupedProducts.keys.toList()
+      ..sort();
 
     return Scaffold(
       appBar: AppBar(
@@ -501,68 +551,72 @@ class _InventarioPageState extends State<InventarioPage> {
                   ),
                 ],
               ),
-            ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar producto',
-                        prefixIcon: const Icon(Icons.search),
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(8),
+            ] else
+              ...[
+                Row(
+                  children: [
+                    Expanded(
+                      child: TextField(
+                        controller: _searchController,
+                        decoration: InputDecoration(
+                          hintText: 'Buscar producto',
+                          prefixIcon: const Icon(Icons.search),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          contentPadding: const EdgeInsets.symmetric(
+                              horizontal: 16),
                         ),
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _selectedFilter,
-                        items: _filterOptions.map((String value) {
-                          return DropdownMenuItem<String>(
-                            value: value,
-                            child: Text(value),
-                          );
-                        }).toList(),
-                        onChanged: (String? newValue) {
-                          setState(() {
-                            _selectedFilter = newValue!;
-                            _filterProducts();
-                          });
-                        },
+                    const SizedBox(width: 16),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 12),
+                      decoration: BoxDecoration(
+                        border: Border.all(color: Colors.grey.shade300),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: DropdownButtonHideUnderline(
+                        child: DropdownButton<String>(
+                          value: _selectedFilter,
+                          items: _filterOptions.map((String value) {
+                            return DropdownMenuItem<String>(
+                              value: value,
+                              child: Text(value),
+                            );
+                          }).toList(),
+                          onChanged: (String? newValue) {
+                            setState(() {
+                              _selectedFilter = newValue!;
+                              _filterProducts();
+                            });
+                          },
+                        ),
                       ),
                     ),
-                  ),
-                  const SizedBox(width: 16),
-                  ElevatedButton.icon(
-                    onPressed: _mostrarFormularioAgregarProducto,
-                    icon: const Icon(Icons.add),
-                    label: const Text('Añadir producto'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.blue,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    const SizedBox(width: 16),
+                    ElevatedButton.icon(
+                      onPressed: _mostrarFormularioAgregarProducto,
+                      icon: const Icon(Icons.add),
+                      label: const Text('Añadir producto'),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: Colors.blue,
+                        foregroundColor: Colors.white,
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
+                  ],
+                ),
+              ],
             const SizedBox(height: 20),
             Expanded(
               child: ListView.builder(
                 itemCount: sortedCategories.length,
                 itemBuilder: (context, index) {
                   String category = sortedCategories[index];
-                  List<Map<String, dynamic>> products = groupedProducts[category]!;
+                  List<Map<String,
+                      dynamic>> products = groupedProducts[category]!;
 
                   return Card(
                     margin: EdgeInsets.only(bottom: isSmallScreen ? 12 : 16),
@@ -642,7 +696,8 @@ class _InventarioPageState extends State<InventarioPage> {
                       border: OutlineInputBorder(),
                     ),
                     onSaved: (value) => nombre = value ?? '',
-                    validator: (value) => value?.isEmpty ?? true
+                    validator: (value) =>
+                    value?.isEmpty ?? true
                         ? 'Este campo es requerido'
                         : null,
                   ),
@@ -663,7 +718,8 @@ class _InventarioPageState extends State<InventarioPage> {
                       );
                     }).toList(),
                     onChanged: (value) => categoria = value ?? '',
-                    validator: (value) => value == null || value.isEmpty
+                    validator: (value) =>
+                    value == null || value.isEmpty
                         ? 'Este campo es requerido'
                         : null,
                     hint: const Text('Seleccionar categoría'),
@@ -753,7 +809,8 @@ class _InventarioPageState extends State<InventarioPage> {
                       border: OutlineInputBorder(),
                     ),
                     onSaved: (value) => nombre = value ?? '',
-                    validator: (value) => value?.isEmpty ?? true
+                    validator: (value) =>
+                    value?.isEmpty ?? true
                         ? 'Este campo es requerido'
                         : null,
                   ),
@@ -773,7 +830,8 @@ class _InventarioPageState extends State<InventarioPage> {
                       );
                     }).toList(),
                     onChanged: (value) => categoria = value ?? '',
-                    validator: (value) => value == null || value.isEmpty
+                    validator: (value) =>
+                    value == null || value.isEmpty
                         ? 'Este campo es requerido'
                         : null,
                   ),
@@ -810,7 +868,8 @@ class _InventarioPageState extends State<InventarioPage> {
                 if (formKey.currentState?.validate() ?? false) {
                   formKey.currentState?.save();
                   _actualizarProducto(
-                      producto, nombre, categoria, precio, producto['stock'].toString());
+                      producto, nombre, categoria, precio,
+                      producto['stock'].toString());
                   Navigator.pop(context);
                 }
               },
@@ -831,7 +890,7 @@ class _InventarioPageState extends State<InventarioPage> {
     showDialog(
       context: context,
       builder: (BuildContext context) {
-        return StatefulBuilder( // Agregamos StatefulBuilder
+        return StatefulBuilder(
           builder: (BuildContext context, StateSetter setDialogState) {
             return AlertDialog(
               title: Text('Reabastecer Producto'),
@@ -854,7 +913,7 @@ class _InventarioPageState extends State<InventarioPage> {
                       ),
                       onChanged: (value) {
                         final cantidad = int.tryParse(value) ?? 0;
-                        setDialogState(() { // Usamos setDialogState en lugar de setState
+                        setDialogState(() {
                           precioTotal = cantidad * precioPorUnidad;
                         });
                       },
@@ -866,9 +925,7 @@ class _InventarioPageState extends State<InventarioPage> {
               ),
               actions: [
                 TextButton(
-                  onPressed: () {
-                    Navigator.of(context).pop();
-                  },
+                  onPressed: () => Navigator.of(context).pop(),
                   child: Text('Cancelar'),
                 ),
                 ElevatedButton(
@@ -880,17 +937,46 @@ class _InventarioPageState extends State<InventarioPage> {
                     }
 
                     precioTotal = cantidad * precioPorUnidad;
-                    int nuevoStock = stockActual + cantidad;
 
-                    await _actualizarProducto(
-                      producto,
-                      producto['producto'],
-                      producto['categoria'],
-                      producto['precio'].toString(),
-                      nuevoStock.toString(),
-                    );
+                    if (precioTotal > availableMoney) {
+                      _showErrorDialog('Saldo insuficiente para realizar esta compra.');
+                      return;
+                    }
 
-                    Navigator.of(context).pop();
+                    try {
+                      // Insertar transacción de egreso
+                      final transaccionResponse = await http.post(
+                        Uri.parse('$baseUrl/transaccionesinsert'),
+                        headers: {'Content-Type': 'application/json'},
+                        body: json.encode({
+                          'descripcion': 'Reabastecimiento de ${producto['producto']}',
+                          'monto': precioTotal,
+                          'tipo': 'egreso',
+                          'fecha': DateTime.now().toIso8601String(),
+                        }),
+                      );
+
+                      if (transaccionResponse.statusCode == 201) {
+                        // Actualizar producto con nuevo stock
+                        int nuevoStock = stockActual + cantidad;
+                        await _actualizarProducto(
+                          producto,
+                          producto['producto'],
+                          producto['categoria'],
+                          producto['precio'].toString(),
+                          nuevoStock.toString(),
+                        );
+
+                        // Refrescar saldo
+                        await _fetchSaldo();
+
+                        Navigator.of(context).pop();
+                      } else {
+                        _showErrorDialog('Error al registrar la transacción');
+                      }
+                    } catch (e) {
+                      _showErrorDialog('Error de conexión: ${e.toString()}');
+                    }
                   },
                   child: Text('Guardar'),
                 ),
@@ -901,6 +987,7 @@ class _InventarioPageState extends State<InventarioPage> {
       },
     );
   }
+
 
 
 

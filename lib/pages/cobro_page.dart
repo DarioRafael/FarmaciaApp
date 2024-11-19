@@ -1,12 +1,28 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:responsive_framework/responsive_framework.dart';
 
 class CobroPage extends StatefulWidget {
   const CobroPage({super.key});
 
   @override
   _CobroPageState createState() => _CobroPageState();
+}
+
+class ResponsiveScalingWidget extends StatelessWidget {
+  final Widget child;
+
+  const ResponsiveScalingWidget({required this.child});
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return child;
+      },
+    );
+  }
 }
 
 class _CobroPageState extends State<CobroPage> {
@@ -18,8 +34,25 @@ class _CobroPageState extends State<CobroPage> {
   List<String> _categorias = ['Todos'];
   String _categoriaSeleccionada = 'Todos';
   final TextEditingController _searchController = TextEditingController();
-
+  double availableMoney = 0.0;
+  double ingresos = 0.0;
+  double egresos = 0.0;
+  bool _isLoading = true;
   final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+
+
+  final ColorScheme _colorScheme = ColorScheme.fromSeed(
+    seedColor: Color(0xFF2E7D32),
+    primary: Color(0xFF2E7D32),
+    secondary: Color(0xFF81C784),
+    background: Color(0xFFF0F4F0),
+    surface: Colors.white,
+    onPrimary: Colors.white,
+    onSecondary: Colors.black,
+  );
+
+  // Responsive typography
+  late TextTheme _textTheme;
 
   @override
   void initState() {
@@ -27,6 +60,8 @@ class _CobroPageState extends State<CobroPage> {
     _searchController.addListener(_filtrarProductos);
     _loadProductos();
     _loadCategorias();
+    _fetchSaldo();
+
   }
 
   Future<void> _loadProductos() async {
@@ -79,7 +114,43 @@ class _CobroPageState extends State<CobroPage> {
       _mostrarNotificacion('Error al cargar categorias');
     }
   }
+  Future<void> _fetchSaldo() async {
+    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    final String saldoEndpoint = '/saldo';
 
+    try {
+      final response = await http.get(Uri.parse('$baseUrl$saldoEndpoint'));
+
+      if (response.statusCode == 200) {
+        // Verifica la respuesta antes de intentar decodificarla
+        final dynamic data = json.decode(response.body);
+
+        // Agrega un log para ver qué tipo de datos estás recibiendo
+        print('Respuesta recibida: $data');
+
+        // Cambia la verificación para aceptar un objeto en lugar de una lista
+        if (data is Map<String, dynamic> && data.containsKey('baseSaldo')) {
+          setState(() {
+            availableMoney = data['baseSaldo'].toDouble();
+            ingresos = data['totalIngresos'].toDouble();
+            egresos = data['totalEgresos'].toDouble();
+            _isLoading = false;
+          });
+        } else {
+          throw Exception('Formato inesperado o campo "saldo" no encontrado');
+        }
+      } else {
+        throw Exception('Failed to load saldo');
+      }
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar el saldo: $e')),
+      );
+    }
+  }
   void _filtrarProductos() {
     setState(() {
       _query = _searchController.text;
@@ -98,36 +169,14 @@ class _CobroPageState extends State<CobroPage> {
   }
 
   void _mostrarNotificacion(String mensaje) {
-    final overlay = Overlay.of(context);
-    final overlayEntry = OverlayEntry(
-      builder: (context) => Positioned(
-        top: MediaQuery.of(context).size.height * 0.1,
-        left: MediaQuery.of(context).size.width * 0.1,
-        right: MediaQuery.of(context).size.width * 0.1,
-        child: Material(
-          color: Colors.transparent,
-          child: Container(
-            padding: EdgeInsets.symmetric(
-                horizontal: MediaQuery.of(context).size.width * 0.05,
-                vertical: MediaQuery.of(context).size.height * 0.02),
-            decoration: BoxDecoration(
-              color: Colors.black,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Text(
-              mensaje,
-              style: TextStyle(color: Colors.white),
-              textAlign: TextAlign.center,
-            ),
-          ),
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final scaffoldMessenger = ScaffoldMessenger.of(context);
+      scaffoldMessenger.showSnackBar(
+        SnackBar(
+          content: Text(mensaje),
+          duration: Duration(seconds: 2),
         ),
-      ),
-    );
-
-    overlay.insert(overlayEntry);
-
-    Future.delayed(Duration(seconds: 2), () {
-      overlayEntry.remove();
+      );
     });
   }
 
@@ -150,13 +199,13 @@ class _CobroPageState extends State<CobroPage> {
       if (carritoActual.containsKey(nombreProducto)) {
         if (carritoActual[nombreProducto]! < stockDisponible) {
           carritoActual[nombreProducto] = carritoActual[nombreProducto]! + 1;
-          _mostrarNotificacion('Actualizada la cantidad de $nombreProducto.');
+          //_mostrarNotificacion('Actualizada la cantidad de $nombreProducto.');
         } else {
           _mostrarNotificacion('No se puede agregar más de $stockDisponible unidades de $nombreProducto.');
         }
       } else {
         carritoActual[nombreProducto] = 1;
-        _mostrarNotificacion('Agregado $nombreProducto al carrito.');
+        //_mostrarNotificacion('Agregado $nombreProducto al carrito.');
       }
 
       _productosFiltrados = _productos
@@ -171,6 +220,7 @@ class _CobroPageState extends State<CobroPage> {
       }
     });
   }
+
   void _eliminarDelCarrito(String nombreProducto) {
     setState(() {
       if (_carritoActivo != -1) {
@@ -471,42 +521,170 @@ class _CobroPageState extends State<CobroPage> {
     );
   }
 
-  void _confirmarVenta() {
+  double _calcularPrecioTotal() {
+    double total = 0.0;
+    if (_carritoActivo != -1) {
+      final carritoActual = _carritos[_carritoActivo];
+      carritoActual.forEach((nombre, cantidad) {
+        final precio = _productos.firstWhere(
+                (producto) => producto['nombre'] == nombre)['precio'] as double;
+        total += precio * cantidad;
+      });
+    }
+    return total;
+  }
+
+  Future<void> _confirmarVenta() async {
+    final precioTotal = _calcularPrecioTotal();
+
+    final _productosVendidos = _carritos[_carritoActivo].entries.map((entry) {
+      final producto = _productos.firstWhere(
+              (p) => p['nombre'] == entry.key
+      );
+      return {
+        'id': producto['IDProductos'],  // Use the correct ID field
+        'nombre': entry.key,
+        'cantidadVendida': entry.value,
+        'stockActual': producto['stock']
+      };
+    }).toList();
+
     showDialog(
       context: context,
       builder: (BuildContext context) {
         return AlertDialog(
           title: Text('Confirmar Venta'),
-          content: Text('¿Está seguro que desea confirmar la venta?'),
+          content: Text('¿Está seguro de confirmar la venta?'),
           actions: [
             TextButton(
-              onPressed: () {
-                Navigator.of(context).pop(); // Cierra el diálogo
-              },
+              onPressed: () => Navigator.of(context).pop(),
               child: Text('Cancelar'),
             ),
-            TextButton(
-              onPressed: () {
-                setState(() {
-                  // Procesa la venta aquí
-                  _vaciarCarrito();
-                  _carritos.removeAt(_carritoActivo); // Elimina el carrito
-                  if (_carritoActivo >= _carritos.length) {
-                    _carritoActivo = _carritos.length - 1;
+            ElevatedButton(
+              onPressed: () async {
+                Navigator.of(context).pop(); // Close confirmation dialog
+                _mostrarDialogoCarga(); // Show loading dialog
+
+                try {
+                  // Perform sale transaction
+                  await _realizarTransaccionIngreso(precioTotal);
+
+                  // Update stock for each product
+                  for (var producto in _productosVendidos) {
+                    await _actualizarStockProducto(
+                        producto['id'],
+                        producto['cantidadVendida']
+                    );
                   }
-                  if (_carritos.isEmpty) {
-                    _carritoActivo = -1;
-                    _ocultarBotonFlotante();
-                  }
-                  _mostrarNotificacion('Venta confirmada.');
-                  Navigator.of(context).pop(); // Cierra el diálogo
-                  Navigator.of(context)
-                      .pop(); // Cierra el carrito si está abierto
-                });
+
+                  setState(() {
+                    _vaciarCarrito();
+                    _carritos.removeAt(_carritoActivo);
+
+                    // Adjust active cart index
+                    if (_carritoActivo >= _carritos.length) {
+                      _carritoActivo = _carritos.length - 1;
+                    }
+
+                    // Reset if no carts left
+                    if (_carritos.isEmpty) {
+                      _carritoActivo = -1;
+                      _ocultarBotonFlotante();
+                    }
+                  });
+
+                  _mostrarNotificacion('Venta confirmada exitosamente');
+                } catch (e) {
+                  print('Error en confirmación de venta: $e');
+                  _mostrarNotificacion('Error al confirmar la venta');
+                } finally {
+                  Navigator.of(context).pop(); // Close loading dialog
+                }
               },
               child: Text('Confirmar'),
             ),
           ],
+        );
+      },
+    );
+  }
+
+  Future<void> _actualizarStockProducto(int idProducto, int cantidadVendida) async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final productoActual = _productos.firstWhere((p) => p['IDProductos'] == idProducto);
+      final nuevoStock = productoActual['stock'] - cantidadVendida;
+
+      final response = await http.put(
+        Uri.parse('$baseUrl/productos/$idProducto'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'nombre': productoActual['nombre'],
+          'categoria': productoActual['categoria'],
+          'stock': nuevoStock,
+          'precio': productoActual['precio'],
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        setState(() {
+          productoActual['stock'] = nuevoStock;
+        });
+        _mostrarNotificacion('Stock actualizado correctamente');
+      } else {
+        _mostrarNotificacion('Error al actualizar el stock');
+      }
+    } catch (e) {
+      _mostrarNotificacion('Error de conexión al actualizar el stock');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+
+  Future<void> _realizarTransaccionIngreso(double monto) async {
+    final url = Uri.parse('$baseUrl/transaccionesinsert');
+    final response = await http.post(
+      url,
+      headers: {'Content-Type': 'application/json'},
+      body: json.encode({
+        'descripcion': 'Venta de productos',
+        'monto': monto,
+        'tipo': 'ingreso',
+        'fecha': DateTime.now().toIso8601String(),
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      // Refrescar saldo después de la transacción
+      await _fetchSaldo();
+    } else {
+      // Manejar error
+      _mostrarNotificacion('Error al confirmar la venta.');
+    }
+  }
+
+  void _mostrarDialogoCarga() {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (BuildContext context) {
+        Future.delayed(Duration(seconds: 3), () {
+          Navigator.of(context).pop(true);
+        });
+        return AlertDialog(
+          content: Row(
+            children: [
+              CircularProgressIndicator(),
+              SizedBox(width: 20),
+              Text('Procesando venta...'),
+            ],
+          ),
         );
       },
     );
@@ -563,7 +741,6 @@ class _CobroPageState extends State<CobroPage> {
       _mostrarSegundoBoton = false;
     });
   }
-
 
 
   void _mostrarDialogoCambiarCarrito() {
@@ -632,236 +809,282 @@ class _CobroPageState extends State<CobroPage> {
 
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
-    final isSmallScreen = screenWidth < 600;
+    // Responsive text theming
+    _textTheme = Theme.of(context).textTheme.apply(
+      bodyColor: _colorScheme.onSurface,
+      displayColor: _colorScheme.onSurface,
+    );
 
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Cobro', style: TextStyle(color: Colors.white)),
-        backgroundColor: Color(0xFF004D40),
-        actions: [
-          if (_carritos.isNotEmpty) ...[
-            TextButton(
-              onPressed: _agregarNuevoCarrito,
-              child: Row(
-                children: [
-                  Text('+', style: TextStyle(color: Colors.white, fontSize: 28)),
-                  SizedBox(width: 4),
-                  Text('Nuevo', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-            TextButton(
-              onPressed: _mostrarDialogoCambiarCarrito,
-              child: Row(
-                children: [
-                  Text('⇄', style: TextStyle(color: Colors.white, fontSize: 24)),
-                  SizedBox(width: 4),
-                  Text('Cambiar', style: TextStyle(color: Colors.white)),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
-      body: Padding(
-        padding: EdgeInsets.all(MediaQuery.of(context).size.width * 0.04),
-        child: Column(
-          children: [
-            if (isSmallScreen) ...[
-              TextField(
-                controller: _searchController,
-                decoration: InputDecoration(
-                  hintText: 'Buscar producto',
-                  border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  prefixIcon: Icon(Icons.search),
-                ),
-              ),
-              SizedBox(height: 16.0),
-              Container(
-                margin: EdgeInsets.only(bottom: 8.0),
-                padding: EdgeInsets.symmetric(horizontal: 12),
-                decoration: BoxDecoration(
-                  border: Border.all(color: Colors.grey.shade300),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
-                    isExpanded: true,
-                    value: _categoriaSeleccionada,
-                    items: _categorias.map((categoria) {
-                      return DropdownMenuItem<String>(
-                        value: categoria,
-                        child: Text(categoria),
-                      );
-                    }).toList(),
-                    onChanged: (valor) {
-                      setState(() {
-                        _categoriaSeleccionada = valor!;
-                        _filtrarProductos();
-                      });
-                    },
-                  ),
-                ),
-              ),
-            ] else ...[
-              Row(
-                children: [
-                  Expanded(
-                    child: TextField(
-                      controller: _searchController,
-                      decoration: InputDecoration(
-                        hintText: 'Buscar producto',
-                        border: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                        ),
-                        prefixIcon: Icon(Icons.search),
-                      ),
-                    ),
-                  ),
-                  SizedBox(width: 16.0),
-                  Container(
-                    margin: EdgeInsets.only(bottom: 8.0),
-                    padding: EdgeInsets.symmetric(horizontal: 12),
-                    decoration: BoxDecoration(
-                      border: Border.all(color: Colors.grey.shade300),
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: DropdownButtonHideUnderline(
-                      child: DropdownButton<String>(
-                        value: _categoriaSeleccionada,
-                        items: _categorias.map((categoria) {
-                          return DropdownMenuItem<String>(
-                            value: categoria,
-                            child: Text(categoria),
-                          );
-                        }).toList(),
-                        onChanged: (valor) {
-                          setState(() {
-                            _categoriaSeleccionada = valor!;
-                            _filtrarProductos();
-                          });
-                        },
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ],
-            Expanded(
-              child: GridView.builder(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: isSmallScreen ? 2 : 4, // Más columnas en pantallas grandes
-                  childAspectRatio: 0.7, // Ajusta la relación de aspecto
-                ),
-                itemCount: _productosFiltrados.length,
-                itemBuilder: (context, index) {
-                  final producto = _productosFiltrados[index];
-                  return Card(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Expanded(
-                          child: Container(
-                            width: double.infinity,
-                            color: Colors.lightGreen, // Color piel suave
-                            child: Center(
-                              child: Text(
-                                producto['nombre'][0], // Primera letra del nombre del producto
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 40,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ),
-                        ),
-                        Padding(
-                          padding: EdgeInsets.all(8.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                producto['nombre'],
-                                style: TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 16.0,
-                                ),
-                              ),
-                              SizedBox(height: 4.0),
-                              Text(
-                                'Precio: \$${producto['precio']}',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14.0,
-                                ),
-                              ),
-                              SizedBox(height: 4.0),
-                              Text(
-                                'Cantidad disponible: ${producto['stock']}',
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14.0,
-                                ),
-                              ),
-                              SizedBox(height: 8.0),
-                              ElevatedButton(
-                                onPressed: () => _agregarAlCarrito(producto),
-                                style: ElevatedButton.styleFrom(
-                                  backgroundColor: Color(0xFF004D40),
-                                ),
-                                child: Text(
-                                  'Agregar',
-                                  style: TextStyle(color: Colors.white),
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ],
-                    ),
-                  );
-                },
-              ),
-            ),
-          ],
-        ),
-      ),
-      floatingActionButton: _carritos.isNotEmpty
-          ? Padding(
-        padding: EdgeInsets.only(right: 16.0),
-        child: ElevatedButton(
-          onPressed: _mostrarCarrito,
-          style: ElevatedButton.styleFrom(
-            backgroundColor: Color(0xFF004D40),
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(30.0),
-            ),
-            padding: EdgeInsets.symmetric(
-              horizontal: isSmallScreen ? 20.0 : 32.0,
-              vertical: isSmallScreen ? 12.0 : 16.0,
-            ),
-            textStyle: TextStyle(
-              fontSize: isSmallScreen ? 16.0 : 20.0,
-              fontWeight: FontWeight.bold,
-            ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        return ResponsiveScalingWidget(
+          child: Scaffold(
+            backgroundColor: _colorScheme.background,
+            appBar: _buildResponsiveAppBar(constraints),
+            body: _buildResponsiveBody(constraints),
+            floatingActionButton: _buildResponsiveFloatingButton(constraints),
           ),
-          child: Row(
-            children: [
-              Icon(Icons.shopping_cart, color: Colors.white),
-              SizedBox(width: 8.0),
-              Text(
-                'Cobrar (${_contarUnidades()})',
-                style: TextStyle(color: Colors.white),
-              ),
-            ],
-          ),
-        ),
-      )
-          : null,
+        );
+      },
     );
   }
+
+  // Responsive AppBar
+  PreferredSizeWidget _buildResponsiveAppBar(BoxConstraints constraints) {
+    return AppBar(
+      title: Text(
+        'Punto de Venta',
+        style: _textTheme.titleLarge?.copyWith(
+          color: _colorScheme.onPrimary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+      backgroundColor: _colorScheme.primary,
+      actions: _buildContextualActions(constraints),
+    );
+  }
+
+  // Context-aware actions
+  List<Widget> _buildContextualActions(BoxConstraints constraints) {
+    final isCompact = constraints.maxWidth < 600;
+    return isCompact
+        ? [
+      IconButton(
+        icon: Icon(Icons.add_shopping_cart, color: _colorScheme.onPrimary),
+        onPressed: _agregarNuevoCarrito,
+      ),
+      IconButton(
+        icon: Icon(Icons.swap_horiz, color: _colorScheme.onPrimary),
+        onPressed: _mostrarDialogoCambiarCarrito,
+      )
+    ]
+        : [
+      TextButton.icon(
+        icon: Icon(Icons.add_shopping_cart, color: _colorScheme.onPrimary),
+        label: Text('Nuevo Carrito', style: TextStyle(color: _colorScheme.onPrimary)),
+        onPressed: _agregarNuevoCarrito,
+      ),
+      TextButton.icon(
+        icon: Icon(Icons.swap_horiz, color: _colorScheme.onPrimary),
+        label: Text('Cambiar Carrito', style: TextStyle(color: _colorScheme.onPrimary)),
+        onPressed: _mostrarDialogoCambiarCarrito,
+      )
+    ];
+  }
+
+  Widget _buildResponsiveBody(BoxConstraints constraints) {
+    final isCompact = constraints.maxWidth < 600;
+    final crossAxisCount = isCompact
+        ? (constraints.maxWidth < 400 ? 2 : 3)
+        : (constraints.maxWidth < 1200 ? 4 : 6);
+
+    return Padding(
+      padding: EdgeInsets.all(isCompact ? 4.0 : 8.0),
+      child: Column(
+        children: [
+          _buildAdaptiveSearchSection(isCompact),
+          Expanded(
+            child: GridView.builder(
+              gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: crossAxisCount,
+                childAspectRatio: isCompact ? 0.5 : 0.65,
+                crossAxisSpacing: isCompact ? 4 : 8,
+                mainAxisSpacing: isCompact ? 4 : 8,
+              ),
+              itemCount: _productosFiltrados.length,
+              itemBuilder: (context, index) {
+                final producto = _productosFiltrados[index];
+                return _buildResponsiveProductCard(producto, isCompact);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Adaptive Search Section
+  Widget _buildAdaptiveSearchSection(bool isCompact) {
+    return isCompact
+        ? Column(
+      children: [
+        _buildSearchField(),
+        SizedBox(height: 8),
+        _buildCategoryDropdown(),
+      ],
+    )
+        : Row(
+      children: [
+        Expanded(child: _buildSearchField()),
+        SizedBox(width: 16),
+        _buildCategoryDropdown(),
+      ],
+    );
+  }
+
+  // Enhanced Product Card with Responsive Design
+  Widget _buildResponsiveProductCard(Map<String, dynamic> producto, bool isCompact) {
+    return Card(
+      elevation: 4,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(15),
+      ),
+      child: Stack(
+        children: [
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              _buildProductImage(producto),
+              Expanded(
+                child: Padding(
+                  padding: EdgeInsets.all(isCompact ? 8.0 : 12.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            producto['nombre'],
+                            style: _textTheme.bodyLarge?.copyWith(
+                              fontWeight: FontWeight.bold,
+                              color: _colorScheme.onSurface,
+                            ),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                          SizedBox(height: 4),
+                          Text(
+                            '\$${producto['precio']}',
+                            style: _textTheme.titleMedium?.copyWith(
+                              color: _colorScheme.primary,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          Text(
+                            'Stock: ${producto['stock']}',
+                            style: _textTheme.bodySmall?.copyWith(
+                              color: _colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                      SizedBox(height: 8),
+                      ElevatedButton(
+                        onPressed: () => _agregarAlCarrito(producto),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: _colorScheme.primary,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          minimumSize: Size(double.infinity, 40),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(Icons.add_shopping_cart, size: 18, color: _colorScheme.onPrimary),
+                            SizedBox(width: 8),
+                            Text(
+                              'Agregar',
+                              style: TextStyle(color: _colorScheme.onPrimary),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+          // Stock indicator
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Container(
+              padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+              decoration: BoxDecoration(
+                color: producto['stock'] > 10
+                    ? Colors.green.withOpacity(0.2)
+                    : Colors.red.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Text(
+                producto['stock'] > 10 ? 'Disponible' : 'Bajo Stock',
+                style: TextStyle(
+                  fontSize: 10,
+                  color: producto['stock'] > 10 ? Colors.green : Colors.red,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // Responsive Floating Button
+  Widget _buildResponsiveFloatingButton(BoxConstraints constraints) {
+    final isCompact = constraints.maxWidth < 600;
+
+    return _carritos.isNotEmpty
+        ? FloatingActionButton.extended(
+      onPressed: _mostrarCarrito,
+      backgroundColor: _colorScheme.primary,
+      icon: Icon(Icons.shopping_cart, color: _colorScheme.onPrimary),
+      label: Text(
+        isCompact
+            ? '${_contarUnidades()}'
+            : 'Cobrar (${_contarUnidades()})',
+        style: TextStyle(
+          color: _colorScheme.onPrimary,
+          fontWeight: FontWeight.bold,
+        ),
+      ),
+    )
+        : Container();
+  }
+  Widget _buildSearchField() {
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Buscar productos...',
+        prefixIcon: Icon(Icons.search),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(8),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildCategoryDropdown() {
+    return DropdownButton<String>(
+      value: _categoriaSeleccionada,
+      items: _categorias.map((String categoria) {
+        return DropdownMenuItem<String>(
+          value: categoria,
+          child: Text(categoria),
+        );
+      }).toList(),
+      onChanged: (String? nuevaCategoria) {
+        setState(() {
+          _categoriaSeleccionada = nuevaCategoria!;
+          _filtrarProductos();
+        });
+      },
+    );
+  }
+
+  Widget _buildProductImage(Map<String, dynamic> producto) {
+    return Container(
+      height: 150,
+      decoration: BoxDecoration(
+        color: producto['color'] ?? Colors.white60, // Use the color from the product or default to grey
+        borderRadius: BorderRadius.vertical(top: Radius.circular(15)),
+      ),
+    );
+  }
+
+
 }

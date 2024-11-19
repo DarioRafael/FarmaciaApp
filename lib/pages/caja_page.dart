@@ -12,33 +12,19 @@ class CajaPage extends StatefulWidget {
 
 class _CajaPageState extends State<CajaPage> {
   double availableMoney = 0.0;
+  double ingresos = 0.0;
+  double egresos = 0.0;
   bool isLoading = true;
+  List<Transaction> transactions = [];
 
-  // Sample data - In a real app this would come from a database
-  final List<Transaction> transactions = [
-    Transaction(
-      id: '1',
-      description: 'Venta de productos',
-      amount: 1500,
-      type: TransactionType.income,
-      date: DateTime.now().subtract(const Duration(days: 1)),
-    ),
-    Transaction(
-      id: '2',
-      description: 'Pago de servicios',
-      amount: 800,
-      type: TransactionType.expense,
-      date: DateTime.now().subtract(const Duration(days: 2)),
-    ),
-    // Add more sample transactions here
-  ];
 
   @override
   void initState() {
     super.initState();
     _fetchSaldo();
-  }
+    _fetchTransactions();
 
+  }
   Future<void> _fetchSaldo() async {
     final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
     final String saldoEndpoint = '/saldo';
@@ -53,9 +39,12 @@ class _CajaPageState extends State<CajaPage> {
         // Agrega un log para ver qué tipo de datos estás recibiendo
         print('Respuesta recibida: $data');
 
-        if (data is List && data.isNotEmpty && data[0] is Map<String, dynamic> && data[0].containsKey('saldo')) {
+        // Cambia la verificación para aceptar un objeto en lugar de una lista
+        if (data is Map<String, dynamic> && data.containsKey('baseSaldo')) {
           setState(() {
-            availableMoney = data[0]['saldo'].toDouble();
+            availableMoney = data['baseSaldo'].toDouble();
+            ingresos = data['totalIngresos'].toDouble();
+            egresos = data['totalEgresos'].toDouble();
             isLoading = false;
           });
         } else {
@@ -74,6 +63,42 @@ class _CajaPageState extends State<CajaPage> {
     }
   }
 
+  Future<void> _fetchTransactions() async {
+    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    final String transactionsEndpoint = '/transacciones';
+
+    try {
+      final response = await http.get(Uri.parse('$baseUrl$transactionsEndpoint'));
+
+      if (response.statusCode == 200) {
+        final dynamic data = json.decode(response.body);
+
+        if (data is Map<String, dynamic> && data.containsKey('transacciones')) {
+          setState(() {
+            transactions = (data['transacciones'] as List)
+                .map((transaction) => Transaction(
+              id: transaction['id'].toString(),
+              description: transaction['descripcion'],
+              amount: transaction['monto'].toDouble(),
+              type: transaction['tipo'] == 'ingreso'
+                  ? TransactionType.income
+                  : TransactionType.expense,
+              date: DateTime.parse(transaction['fecha']),
+            ))
+                .toList();
+          });
+        } else {
+          throw Exception('Formato inesperado o campo "transacciones" no encontrado');
+        }
+      } else {
+        throw Exception('Failed to load transactions');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar transacciones: $e')),
+      );
+    }
+  }
 
 
 
@@ -182,7 +207,7 @@ class _CajaPageState extends State<CajaPage> {
           Expanded(
             child: _SummaryCard(
               title: 'Ingresos',
-              amount: 15000,
+              amount: ingresos,
               icon: Icons.arrow_upward,
               color: Colors.green,
             ),
@@ -191,7 +216,7 @@ class _CajaPageState extends State<CajaPage> {
           Expanded(
             child: _SummaryCard(
               title: 'Egresos',
-              amount: 8000,
+              amount: egresos,
               icon: Icons.arrow_downward,
               color: Colors.red,
             ),
