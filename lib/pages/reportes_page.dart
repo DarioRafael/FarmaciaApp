@@ -54,6 +54,9 @@ class _ReportesPageState extends State<ReportesPage> {
   final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
 
 
+  bool get isSmallScreen => MediaQuery.of(context).size.width < 600;
+  bool get isMediumScreen => MediaQuery.of(context).size.width < 1024;
+
   @override
   void initState() {
     super.initState();
@@ -140,39 +143,39 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
         ),
         child: SafeArea(
-          child: Padding(
-            padding: const EdgeInsets.all(24.0),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                _buildHeader(),
-                const SizedBox(height: 32),
-                Expanded(
-                  child: Card(
+          child: SingleChildScrollView( // Envolver en SingleChildScrollView
+            child: Padding(
+              padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildHeader(),
+                  SizedBox(height: isSmallScreen ? 16 : 32),
+                  Card(
                     elevation: 8,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Padding(
-                      padding: const EdgeInsets.all(24.0),
+                      padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           _buildReportTypeSelector(),
-                          const SizedBox(height: 24),
+                          SizedBox(height: isSmallScreen ? 16 : 24),
                           if (_reportType != null) ...[
                             _buildFilterSection(),
-                            const SizedBox(height: 24),
+                            SizedBox(height: isSmallScreen ? 16 : 24),
                             _buildDateSelector(),
-                            const SizedBox(height: 24),
+                            SizedBox(height: isSmallScreen ? 16 : 24),
                             _buildGenerateButton(),
                           ],
                         ],
                       ),
                     ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
@@ -181,32 +184,39 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 
   Widget _buildHeader() {
-    return Row(
-      children: [
-        IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
-        ),
-        const SizedBox(width: 16),
-        Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              'Generación de Reportes',
-              style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: Colors.blue.shade900,
-              ),
+    return Padding(
+      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 8.0 : 16.0),
+      child: Row(
+        children: [
+          IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => Navigator.pop(context),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Generación de Reportes',
+                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue.shade900,
+                    fontSize: isSmallScreen ? 20 : 24,
+                  ),
+                ),
+                Text(
+                  'Configura y genera reportes detallados',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: Colors.grey.shade600,
+                    fontSize: isSmallScreen ? 14 : 16,
+                  ),
+                ),
+              ],
             ),
-            Text(
-              'Configura y genera reportes detallados',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Colors.grey.shade600,
-              ),
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 
@@ -216,7 +226,7 @@ class _ReportesPageState extends State<ReportesPage> {
         borderRadius: BorderRadius.circular(12),
         color: Colors.grey.shade50,
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -227,7 +237,8 @@ class _ReportesPageState extends State<ReportesPage> {
               color: Colors.blue.shade900,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 12 : 16),
+          // Siempre usar Row para mantener los botones en horizontal
           Row(
             children: [
               Expanded(
@@ -237,7 +248,7 @@ class _ReportesPageState extends State<ReportesPage> {
                   _reportType == 'Inventario',
                 ),
               ),
-              const SizedBox(width: 16),
+              SizedBox(width: isSmallScreen ? 8 : 16), // Reducimos el espacio en móvil
               Expanded(
                 child: _buildReportTypeButton(
                   'Ventas',
@@ -256,12 +267,14 @@ class _ReportesPageState extends State<ReportesPage> {
     return InkWell(
       onTap: () => setState(() {
         _reportType = type;
-        // Actualizar para usar el nuevo Set
         selectedCategoryIds.clear();
         selectedProductIds.clear();
       }),
       child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
+        padding: EdgeInsets.symmetric(
+          vertical: isSmallScreen ? 12 : 16,
+          horizontal: isSmallScreen ? 8 : 16,
+        ),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(12),
           color: isSelected ? Colors.blue.shade100 : Colors.white,
@@ -271,19 +284,22 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
         ),
         child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
             Icon(
               icon,
-              size: 32,
+              size: isSmallScreen ? 24 : 32,
               color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
             ),
-            const SizedBox(height: 8),
+            SizedBox(height: isSmallScreen ? 4 : 8),
             Text(
               type,
               style: TextStyle(
                 color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
                 fontWeight: FontWeight.bold,
+                fontSize: isSmallScreen ? 12 : 14,
               ),
+              textAlign: TextAlign.center,
             ),
           ],
         ),
@@ -297,7 +313,7 @@ class _ReportesPageState extends State<ReportesPage> {
         borderRadius: BorderRadius.circular(12),
         color: Colors.grey.shade50,
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -308,14 +324,15 @@ class _ReportesPageState extends State<ReportesPage> {
               color: Colors.blue.shade900,
             ),
           ),
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 12 : 16),
           _buildCategorySelector(),
-          const SizedBox(height: 16),
+          SizedBox(height: isSmallScreen ? 12 : 16),
           _buildProductSelector(),
         ],
       ),
     );
   }
+
 
   Widget _buildCategorySelector() {
     return Column(
@@ -471,7 +488,7 @@ class _ReportesPageState extends State<ReportesPage> {
         borderRadius: BorderRadius.circular(12),
         color: Colors.grey.shade50,
       ),
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -482,17 +499,26 @@ class _ReportesPageState extends State<ReportesPage> {
               color: Colors.blue.shade900,
             ),
           ),
-          const SizedBox(height: 16),
-          Row(
-            children: [
-              Expanded(
-                child: _buildDateButton(true),
-              ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: _buildDateButton(false),
-              ),
-            ],
+          SizedBox(height: isSmallScreen ? 12 : 16),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              if (constraints.maxWidth < 500) {
+                return Column(
+                  children: [
+                    _buildDateButton(true),
+                    const SizedBox(height: 12),
+                    _buildDateButton(false),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: _buildDateButton(true)),
+                  const SizedBox(width: 16),
+                  Expanded(child: _buildDateButton(false)),
+                ],
+              );
+            },
           ),
         ],
       ),
@@ -551,25 +577,29 @@ class _ReportesPageState extends State<ReportesPage> {
         _endDate != null &&
         (selectedCategoryIds.isEmpty || !selectedProductIds.isEmpty);
 
-    return ElevatedButton(
-      onPressed: canGenerate ? _generateAndDownloadPDF : null,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: Colors.blue.shade700,
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(12),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: const [
-          Icon(Icons.picture_as_pdf),
-          SizedBox(width: 8),
-          Text(
-            'Generar Reporte',
-            style: TextStyle(fontSize: 16),
+    return Container(
+      width: double.infinity,
+      height: isSmallScreen ? 48 : 56,
+      child: ElevatedButton(
+        onPressed: canGenerate ? _generateAndDownloadPDF : null,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: Colors.blue.shade700,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
           ),
-        ],
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.picture_as_pdf, size: isSmallScreen ? 20 : 24, color: Colors.white60,),
+            SizedBox(width: isSmallScreen ? 8 : 12),
+            Text(
+              'Generar Reporte',
+              style: TextStyle(fontSize: isSmallScreen ? 14 : 16,
+              color: Colors.white,),
+            ),
+          ],
+        ),
       ),
     );
   }

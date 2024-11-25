@@ -526,84 +526,129 @@ class _CobroPageState extends State<CobroPage> {
     return total;
   }
 
-  Future<void> _confirmarVenta() async {
-    final precioTotal = _calcularPrecioTotal();
+// Helper method to log response details
+  void _logServerResponse(http.Response response) {
+    print('Status code: ${response.statusCode}');
+    print('Response headers: ${response.headers}');
+    print('Response body: ${response.body}');
+  }
 
-    final _productosVendidos = _carritos[_carritoActivo].entries.map((entry) {
-      final producto = _productos.firstWhere(
-              (p) => p['nombre'] == entry.key
-      );
-      final productoVendido = {
-        'id': producto['id'],  // Use the correct ID field
-        'nombre': entry.key,
-        'cantidadVendida': entry.value,
-        'stockActual': producto['stock']
-      };
-      print(productoVendido);  // Print the product details
-      return productoVendido;
-    }).toList();
-
-
-    showDialog(
-      context: context,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          title: Text('Confirmar Venta'),
-          content: Text('¿Está seguro de confirmar la venta?'),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: Text('Cancelar'),
-            ),
-            ElevatedButton(
-              onPressed: () async {
-                Navigator.of(context).pop(); // Close confirmation dialog
-                _mostrarDialogoCarga(); // Show loading dialog
-
-                try {
-                  // Perform sale transaction
-                  await _realizarTransaccionIngreso(precioTotal);
-                  print('Se realizó la transacción de ingreso');
-                  // Update stock for each product
-                  for (var producto in _productosVendidos) {
-                    await _actualizarStockProducto(
-                        producto['id'],
-                        producto['cantidadVendida']
-                    );
-                  }
-                  print('Se actualizó el stock de los productos');
-                  setState(() {
-                    _vaciarCarrito();
-                    _carritos.removeAt(_carritoActivo);
-
-                    // Adjust active cart index
-                    if (_carritoActivo >= _carritos.length) {
-                      _carritoActivo = _carritos.length - 1;
-                    }
-
-                    // Reset if no carts left
-                    if (_carritos.isEmpty) {
-                      _carritoActivo = -1;
-                      _ocultarBotonFlotante();
-                    }
-                  });
-
-                  _mostrarNotificacion('Venta confirmada exitosamente');
-
-                } catch (e) {
-                  print('Error en confirmación de venta: $e');
-                  _mostrarNotificacion('Error al confirmar la venta');
-                } finally {
-                  Navigator.of(context).pop(); // Close loading dialog
-
-                }
-              },
-              child: Text('Confirmar'),
-            ),
-          ],
+  Future<void> _registrarVenta(List<Map<String, dynamic>> productosVendidos, double precioTotal) async {
+    try {
+      // Format products according to the backend expectations
+      final productosFormateados = productosVendidos.map((producto) {
+        // Find the original product to get its price
+        final productoOriginal = _productos.firstWhere(
+                (p) => p['id'] == producto['id'],
+            orElse: () => throw Exception('Producto no encontrado: ${producto['nombre']}')
         );
-      },
-    );
+
+        final precioUnitario = productoOriginal['precio'].toDouble();
+        final cantidad = producto['cantidadVendida'];
+
+        return {
+          'IDProducto': producto['id'],
+          'Stock': cantidad,
+          'PrecioUnitario': precioUnitario,
+          'PrecioSubtotal': precioUnitario * cantidad
+        };
+      }).toList();
+
+      final ventaData = {
+        'productos': productosFormateados,
+      };
+
+      print('Enviando datos de venta: ${jsonEncode(ventaData)}');
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/ventas'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode(ventaData),
+      );
+
+      print('Status code: ${response.statusCode}');
+      print('Response body: ${response.body}');
+
+      if (response.statusCode == 201) {
+        print('Venta registrada correctamente: ${response.body}');
+      } else {
+        throw Exception('Error al registrar la venta: ${response.body}');
+      }
+    } catch (e) {
+      print('Error al registrar la venta: $e');
+      throw e;
+    }
+  }
+
+  Future<void> _confirmarVenta() async {
+    if (_carritoActivo == -1 || _carritos[_carritoActivo].isEmpty) {
+      _mostrarNotificacion('No hay productos en el carrito');
+      return;
+    }
+
+    try {
+      // Show loading dialog
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return WillPopScope(
+            onWillPop: () async => false,
+            child: AlertDialog(
+              content: Row(
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(width: 16),
+                  Text('Procesando venta...'),
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      // Prepare products for sale
+      final productosVendidos = _carritos[_carritoActivo].entries.map((entry) {
+        final producto = _productos.firstWhere(
+                (p) => p['nombre'] == entry.key,
+            orElse: () => throw Exception('Producto no encontrado: ${entry.key}')
+        );
+
+        return {
+          'id': producto['id'],
+          'nombre': entry.key,
+          'cantidadVendida': entry.value,
+          'stockActual': producto['stock']
+        };
+      }).toList();
+
+      // Register the sale
+      await _registrarVenta(productosVendidos, _calcularPrecioTotal());
+
+      // Update local state
+      if (mounted) {
+        setState(() {
+          _vaciarCarrito();
+          _carritos.removeAt(_carritoActivo);
+          if (_carritos.isEmpty) {
+            _carritoActivo = -1;
+            _ocultarBotonFlotante();
+          } else if (_carritoActivo >= _carritos.length) {
+            _carritoActivo = _carritos.length - 1;
+          }
+        });
+
+        Navigator.of(context).pop(); // Close loading dialog
+        _mostrarNotificacion('Venta confirmada exitosamente');
+      }
+
+    } catch (e) {
+      print('Error en confirmación de venta: $e');
+      if (mounted) {
+        Navigator.of(context).pop(); // Close loading dialog
+        _mostrarNotificacion('Error al confirmar la venta: ${e.toString()}');
+      }
+    }
   }
 
   Future<void> _actualizarStockProducto(int idProducto, int cantidadVendida) async {
