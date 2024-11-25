@@ -69,17 +69,23 @@ class _CobroPageState extends State<CobroPage> {
   }
 
   Future<void> _loadProductos() async {
+    setState(() {
+      _isLoading = true;
+    });
+
     try {
       final response = await http.get(Uri.parse('$baseUrl/productos'));
       if (response.statusCode == 200) {
         final List<dynamic> productos = json.decode(response.body);
 
-        // Usar un Map temporal para detectar y eliminar duplicados por ID
+        // Clear existing products first
+        _productos.clear();
+
+        // Use a Map to remove duplicates
         final Map<int, Map<String, dynamic>> productosUnicos = {};
 
         for (var p in productos) {
           final id = p['IDProductos'];
-          // Solo guarda el producto si no existe uno con ese ID
           if (!productosUnicos.containsKey(id)) {
             productosUnicos[id] = {
               'id': p['IDProductos'],
@@ -94,10 +100,19 @@ class _CobroPageState extends State<CobroPage> {
         setState(() {
           _productos.addAll(productosUnicos.values.toList());
           _productosFiltrados = _productos;
+          _isLoading = false;
         });
+
+        // Trigger filtering to update the view
+        _filtrarProductos();
+      } else {
+        throw Exception('Error al cargar productos');
       }
     } catch (e) {
-      _mostrarNotificacion('Error al cargar productos');
+      setState(() {
+        _isLoading = false;
+      });
+      _mostrarNotificacion('Error al cargar productos: $e');
     }
   }
 
@@ -625,6 +640,11 @@ class _CobroPageState extends State<CobroPage> {
       // Register the sale
       await _registrarVenta(productosVendidos, _calcularPrecioTotal());
 
+      await _realizarTransaccionIngreso(_calcularPrecioTotal());
+
+      // Reload products and wait for completion
+      await _loadProductos();
+
       // Update local state
       if (mounted) {
         setState(() {
@@ -639,6 +659,7 @@ class _CobroPageState extends State<CobroPage> {
         });
 
         Navigator.of(context).pop(); // Close loading dialog
+        Navigator.of(context).pop(); // Close bottom sheet
         _mostrarNotificacion('Venta confirmada exitosamente');
       }
 
