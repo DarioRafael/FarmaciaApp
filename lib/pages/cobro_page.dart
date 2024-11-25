@@ -713,7 +713,7 @@ class _CobroPageState extends State<CobroPage> {
       setState(() {
         _isLoading = false;
       });
-    }
+    }//
   }
 
   Future<void> _realizarTransaccionIngreso(double monto) async {
