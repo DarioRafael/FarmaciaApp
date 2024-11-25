@@ -47,7 +47,6 @@ class _ReportesPageState extends State<ReportesPage> {
   List<Category> categories = [];
   Map<String, String> categoryNameToId = {};
 
-  // Selected items
   Set<String> selectedCategoryIds = {};
   Set<String> selectedProductIds = {};
   bool selectAllProducts = false;
@@ -74,7 +73,6 @@ class _ReportesPageState extends State<ReportesPage> {
       if (response.statusCode == 200) {
         final List<dynamic> categorias = json.decode(response.body);
         final List<Category> loadedCategories = categorias.map((c) {
-          // Almacenar la relación nombre-ID
           categoryNameToId[c['Nombre'].toString()] = c['IDCategoria'].toString();
           return Category(
             id: c['IDCategoria'].toString(),
@@ -97,22 +95,19 @@ class _ReportesPageState extends State<ReportesPage> {
       if (response.statusCode == 200) {
         final List<dynamic> productos = json.decode(response.body);
 
-        // Usar un Map temporal para detectar y eliminar duplicados por ID
         final Map<int, Product> productosUnicos = {};
 
         for (var p in productos) {
           final id = p['IDProductos'];
-          // Obtener el ID de categoría usando el nombre
           final categoryId = categoryNameToId[p['Categoria'].toString()] ?? '';
 
-          // Solo guarda el producto si no existe uno con ese ID
           if (!productosUnicos.containsKey(id) && categoryId.isNotEmpty) {
             productosUnicos[id] = Product(
               id: p['IDProductos'].toString(),
               name: p['Nombre'],
               price: p['Precio'].toDouble(),
               stock: p['Stock'],
-              categoryId: categoryId, // Usar el ID obtenido del mapa
+              categoryId: categoryId,
             );
           }
         }
@@ -315,8 +310,6 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
           const SizedBox(height: 16),
           _buildCategorySelector(),
-          // Mostrar el selector de productos siempre, ya que ahora manejamos
-          // tanto la selección múltiple como el caso de "todas las categorías"
           const SizedBox(height: 16),
           _buildProductSelector(),
         ],

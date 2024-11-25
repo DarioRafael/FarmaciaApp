@@ -92,7 +92,6 @@ class _CobroPageState extends State<CobroPage> {
         }
 
         setState(() {
-          // Convertir el Map de productos únicos a List
           _productos.addAll(productosUnicos.values.toList());
           _productosFiltrados = _productos;
         });
