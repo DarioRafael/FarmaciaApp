@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:responsive_framework/responsive_framework.dart';
+import 'package:flutter_spinbox/flutter_spinbox.dart';
 
 class CobroPage extends StatefulWidget {
   const CobroPage({super.key});
@@ -24,6 +25,9 @@ class ResponsiveScalingWidget extends StatelessWidget {
     );
   }
 }
+
+
+
 
 class _CobroPageState extends State<CobroPage> {
   final List<Map<String, dynamic>> _productos = [];
@@ -78,6 +82,7 @@ class _CobroPageState extends State<CobroPage> {
           // Solo guarda el producto si no existe uno con ese ID
           if (!productosUnicos.containsKey(id)) {
             productosUnicos[id] = {
+              'id': p['IDProductos'],
               'nombre': p['Nombre'],
               'stock': p['Stock'],
               'precio': p['Precio'].toDouble(),
@@ -151,6 +156,7 @@ class _CobroPageState extends State<CobroPage> {
       );
     }
   }
+
   void _filtrarProductos() {
     setState(() {
       _query = _searchController.text;
@@ -249,19 +255,13 @@ class _CobroPageState extends State<CobroPage> {
   }
 
   void _actualizarCantidad(String nombreProducto, int nuevaCantidad) {
-    setState(() {
-      if (_carritoActivo != -1) {
-        final carritoActual = _carritos[_carritoActivo];
-
-        if (nuevaCantidad > 0) {
-          carritoActual[nombreProducto] = nuevaCantidad;
-          _mostrarNotificacion('Cantidad de $nombreProducto actualizada.');
-        } else {
-          _eliminarDelCarrito(nombreProducto);
-        }
+    if (_carritoActivo != -1) {
+      if (_carritos[_carritoActivo].containsKey(nombreProducto)) {
+        _carritos[_carritoActivo][nombreProducto] = nuevaCantidad;
       }
-    });
+    }
   }
+
 
   double _calcularTotal() {
     double total = 0.0;
@@ -321,21 +321,14 @@ class _CobroPageState extends State<CobroPage> {
                           subtitle: Row(
                             children: [
                               Expanded(
-                                child: DropdownButton<int>(
-                                  value: entry.value,
-                                  items: List.generate(stockDisponible, (index) => index + 1)
-                                      .map((cantidad) {
-                                    return DropdownMenuItem<int>(
-                                      value: cantidad,
-                                      child: Text('$cantidad'),
-                                    );
-                                  }).toList(),
+                                child: SpinBox(
+                                  min: 0, // Permitir llegar a 0
+                                  max: stockDisponible.toDouble(),
+                                  value: entry.value.toDouble(),
                                   onChanged: (nuevaCantidad) {
-                                    if (nuevaCantidad != null) {
-                                      setState(() {
-                                        _actualizarCantidad(entry.key, nuevaCantidad);
-                                      });
-                                    }
+                                    setState(() {
+                                      _actualizarCantidad(entry.key, nuevaCantidad.toInt());
+                                    });
                                   },
                                 ),
                               ),
@@ -345,7 +338,7 @@ class _CobroPageState extends State<CobroPage> {
                                 icon: Icon(Icons.delete, color: Color(0xFF004D40)),
                                 onPressed: () {
                                   setState(() {
-                                    _eliminarDelCarrito(entry.key);
+                                    _actualizarCantidad(entry.key, 0); // En lugar de eliminar, establecer en 0
                                   });
                                 },
                               ),
@@ -541,13 +534,16 @@ class _CobroPageState extends State<CobroPage> {
       final producto = _productos.firstWhere(
               (p) => p['nombre'] == entry.key
       );
-      return {
-        'id': producto['IDProductos'],  // Use the correct ID field
+      final productoVendido = {
+        'id': producto['id'],  // Use the correct ID field
         'nombre': entry.key,
         'cantidadVendida': entry.value,
         'stockActual': producto['stock']
       };
+      print(productoVendido);  // Print the product details
+      return productoVendido;
     }).toList();
+
 
     showDialog(
       context: context,
@@ -568,7 +564,7 @@ class _CobroPageState extends State<CobroPage> {
                 try {
                   // Perform sale transaction
                   await _realizarTransaccionIngreso(precioTotal);
-
+                  print('Se realizó la transacción de ingreso');
                   // Update stock for each product
                   for (var producto in _productosVendidos) {
                     await _actualizarStockProducto(
@@ -576,7 +572,7 @@ class _CobroPageState extends State<CobroPage> {
                         producto['cantidadVendida']
                     );
                   }
-
+                  print('Se actualizó el stock de los productos');
                   setState(() {
                     _vaciarCarrito();
                     _carritos.removeAt(_carritoActivo);
@@ -594,11 +590,13 @@ class _CobroPageState extends State<CobroPage> {
                   });
 
                   _mostrarNotificacion('Venta confirmada exitosamente');
+
                 } catch (e) {
                   print('Error en confirmación de venta: $e');
                   _mostrarNotificacion('Error al confirmar la venta');
                 } finally {
                   Navigator.of(context).pop(); // Close loading dialog
+
                 }
               },
               child: Text('Confirmar'),
@@ -615,11 +613,18 @@ class _CobroPageState extends State<CobroPage> {
     });
 
     try {
-      final productoActual = _productos.firstWhere((p) => p['IDProductos'] == idProducto);
+      final productoActual = _productos.firstWhere(
+            (p) => p['id'] == idProducto,
+        orElse: () => {},
+      );
+
+      if (productoActual.isEmpty) {
+        throw Exception('Producto no encontrado');
+      }
       final nuevoStock = productoActual['stock'] - cantidadVendida;
 
       final response = await http.put(
-        Uri.parse('$baseUrl/productos/$idProducto'),
+        Uri.parse('$baseUrl/productos/${idProducto.toString()}'), // Convert idProducto to String
         headers: {'Content-Type': 'application/json'},
         body: json.encode({
           'nombre': productoActual['nombre'],
@@ -646,26 +651,33 @@ class _CobroPageState extends State<CobroPage> {
     }
   }
 
-
   Future<void> _realizarTransaccionIngreso(double monto) async {
-    final url = Uri.parse('$baseUrl/transaccionesinsert');
-    final response = await http.post(
-      url,
-      headers: {'Content-Type': 'application/json'},
-      body: json.encode({
-        'descripcion': 'Venta de productos',
-        'monto': monto,
-        'tipo': 'ingreso',
-        'fecha': DateTime.now().toIso8601String(),
-      }),
-    );
+    if (monto == null) {
+      _mostrarNotificacion('Error: Monto inválido');
+      return;
+    }
 
-    if (response.statusCode == 201) {
-      // Refrescar saldo después de la transacción
-      await _fetchSaldo();
-    } else {
-      // Manejar error
-      _mostrarNotificacion('Error al confirmar la venta.');
+    try {
+      final url = Uri.parse('$baseUrl/transaccionesinsert');
+      final response = await http.post(
+        url,
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'descripcion': 'Venta de productos',
+          'monto': monto,
+          'tipo': 'ingreso',
+          'fecha': DateTime.now().toIso8601String(),
+        }),
+      );
+
+      if (response.statusCode == 201) {
+        await _fetchSaldo();
+      } else {
+        _mostrarNotificacion('Error al confirmar la venta.');
+      }
+    } catch (e) {
+      print('Error en transacción: $e');
+      _mostrarNotificacion('Error al procesar la transacción');
     }
   }
 
@@ -674,17 +686,96 @@ class _CobroPageState extends State<CobroPage> {
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
-        Future.delayed(Duration(seconds: 3), () {
-          Navigator.of(context).pop(true);
-        });
-        return AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text('Procesando venta...'),
-            ],
-          ),
+        return StatefulBuilder(
+          builder: (context, setState) {
+            // Controlador para la animación de la palomita
+            final controller = AnimationController(
+              duration: const Duration(milliseconds: 800),
+              vsync: Navigator.of(context),
+            );
+
+            // Estado inicial
+            bool mostrarCheck = false;
+            bool mostrarTextoExito = false;
+
+            // Secuencia de animaciones
+            Future.delayed(Duration(seconds: 2), () {
+              setState(() {
+                mostrarCheck = true;
+              });
+
+              Future.delayed(Duration(milliseconds: 500), () {
+                setState(() {
+                  mostrarTextoExito = true;
+                });
+
+                // Cerrar el diálogo después de mostrar el éxito
+                Future.delayed(Duration(seconds: 1), () {
+                  Navigator.of(context).pop();
+                });
+              });
+            });
+
+            return AlertDialog(
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15),
+              ),
+              content: Container(
+                height: 120,
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    AnimatedSwitcher(
+                      duration: Duration(milliseconds: 300),
+                      child: mostrarCheck
+                          ? Container(
+                        key: ValueKey('check'),
+                        child: Icon(
+                          Icons.check_circle_outline,
+                          color: Colors.green,
+                          size: 50,
+                        ),
+                      )
+                          : Container(
+                        key: ValueKey('spinner'),
+                        child: SizedBox(
+                          width: 50,
+                          height: 50,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.green,
+                            ),
+                            strokeWidth: 4,
+                          ),
+                        ),
+                      ),
+                    ),
+                    SizedBox(height: 20),
+                    AnimatedSwitcher(
+                      duration: Duration(milliseconds: 300),
+                      child: mostrarTextoExito
+                          ? Text(
+                        'Venta Exitosa',
+                        key: ValueKey('exito'),
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      )
+                          : Text(
+                        'Procesando venta...',
+                        key: ValueKey('procesando'),
+                        style: TextStyle(
+                          fontSize: 16,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );
