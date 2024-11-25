@@ -44,30 +44,16 @@ class _ReportesPageState extends State<ReportesPage> {
   DateTime? _startDate;
   DateTime? _endDate;
   String? _reportType;
-  List<Category> categories = [
-    Category(
-      id: '1',
-      name: 'Papel',
-      products: [
-        Product(id: '1', name: 'Papel Bond', price: 15.50, stock: 100, categoryId: '1'),
-        Product(id: '2', name: 'Papel Couché', price: 25.30, stock: 50, categoryId: '1'),
-      ],
-    ),
-    Category(
-      id: '2',
-      name: 'Útiles',
-      products: [
-        Product(id: '3', name: 'Lápices', price: 5.99, stock: 200, categoryId: '2'),
-        Product(id: '4', name: 'Bolígrafos', price: 8.50, stock: 150, categoryId: '2'),
-      ],
-    ),
-  ];
+  List<Category> categories = [];
+  Map<String, String> categoryNameToId = {};
 
   // Selected items
-  String? selectedCategoryId;
+  Set<String> selectedCategoryIds = {};
   Set<String> selectedProductIds = {};
   bool selectAllProducts = false;
   TextEditingController searchController = TextEditingController();
+  final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+
 
   @override
   void initState() {
@@ -75,10 +61,75 @@ class _ReportesPageState extends State<ReportesPage> {
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
+    _loadCategorias().then((_) {
+      _loadProductos();
+    });
   }
 
 
 
+  Future<void> _loadCategorias() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/categorias'));
+      if (response.statusCode == 200) {
+        final List<dynamic> categorias = json.decode(response.body);
+        final List<Category> loadedCategories = categorias.map((c) {
+          // Almacenar la relación nombre-ID
+          categoryNameToId[c['Nombre'].toString()] = c['IDCategoria'].toString();
+          return Category(
+            id: c['IDCategoria'].toString(),
+            name: c['Nombre'].toString(),
+            products: [],
+          );
+        }).toList();
+        setState(() {
+          categories = loadedCategories;
+        });
+      }
+    } catch (e) {
+      print('Error al cargar categorias: $e');
+    }
+  }
+
+  Future<void> _loadProductos() async {
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/productos'));
+      if (response.statusCode == 200) {
+        final List<dynamic> productos = json.decode(response.body);
+
+        // Usar un Map temporal para detectar y eliminar duplicados por ID
+        final Map<int, Product> productosUnicos = {};
+
+        for (var p in productos) {
+          final id = p['IDProductos'];
+          // Obtener el ID de categoría usando el nombre
+          final categoryId = categoryNameToId[p['Categoria'].toString()] ?? '';
+
+          // Solo guarda el producto si no existe uno con ese ID
+          if (!productosUnicos.containsKey(id) && categoryId.isNotEmpty) {
+            productosUnicos[id] = Product(
+              id: p['IDProductos'].toString(),
+              name: p['Nombre'],
+              price: p['Precio'].toDouble(),
+              stock: p['Stock'],
+              categoryId: categoryId, // Usar el ID obtenido del mapa
+            );
+          }
+        }
+
+        setState(() {
+          for (var category in categories) {
+            category.products.clear();
+            category.products.addAll(
+                productosUnicos.values.where((product) => product.categoryId == category.id)
+            );
+          }
+        });
+      }
+    } catch (e) {
+      print('Error al cargar productos: $e');
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -210,7 +261,8 @@ class _ReportesPageState extends State<ReportesPage> {
     return InkWell(
       onTap: () => setState(() {
         _reportType = type;
-        selectedCategoryId = null;
+        // Actualizar para usar el nuevo Set
+        selectedCategoryIds.clear();
         selectedProductIds.clear();
       }),
       child: Container(
@@ -263,10 +315,10 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
           const SizedBox(height: 16),
           _buildCategorySelector(),
-          if (selectedCategoryId != null) ...[
-            const SizedBox(height: 16),
-            _buildProductSelector(),
-          ],
+          // Mostrar el selector de productos siempre, ya que ahora manejamos
+          // tanto la selección múltiple como el caso de "todas las categorías"
+          const SizedBox(height: 16),
+          _buildProductSelector(),
         ],
       ),
     );
@@ -290,10 +342,13 @@ class _ReportesPageState extends State<ReportesPage> {
           children: [
             FilterChip(
               label: const Text('Todas'),
-              selected: selectedCategoryId == null,
+              selected: selectedCategoryIds.isEmpty,
               onSelected: (bool selected) {
                 setState(() {
-                  selectedCategoryId = selected ? null : selectedCategoryId;
+                  if (selected) {
+                    // Si se selecciona "Todas", limpiar las selecciones individuales
+                    selectedCategoryIds.clear();
+                  }
                   selectedProductIds.clear();
                 });
               },
@@ -301,10 +356,15 @@ class _ReportesPageState extends State<ReportesPage> {
             ...categories.map((category) {
               return FilterChip(
                 label: Text(category.name),
-                selected: selectedCategoryId == category.id,
+                selected: selectedCategoryIds.contains(category.id),
                 onSelected: (bool selected) {
                   setState(() {
-                    selectedCategoryId = selected ? category.id : null;
+                    if (selected) {
+                      selectedCategoryIds.add(category.id);
+                    } else {
+                      selectedCategoryIds.remove(category.id);
+                    }
+                    // Limpiar productos seleccionados cuando cambian las categorías
                     selectedProductIds.clear();
                   });
                 },
@@ -317,7 +377,19 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 
   Widget _buildProductSelector() {
-    final category = categories.firstWhere((c) => c.id == selectedCategoryId);
+    // Obtener productos de las categorías seleccionadas o todas si no hay selección
+    List<Product> selectedCategoryProducts = [];
+
+    if (selectedCategoryIds.isEmpty) {
+      selectedCategoryProducts = categories
+          .expand((category) => category.products)
+          .toList();
+    } else {
+      selectedCategoryProducts = categories
+          .where((category) => selectedCategoryIds.contains(category.id))
+          .expand((category) => category.products)
+          .toList();
+    }
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -341,9 +413,13 @@ class _ReportesPageState extends State<ReportesPage> {
               onPressed: () {
                 setState(() {
                   if (selectAllProducts) {
+                    // Si estaba todo seleccionado, deseleccionar todo
                     selectedProductIds.clear();
                   } else {
-                    selectedProductIds = category.products.map((p) => p.id).toSet();
+                    // Seleccionar solo los productos de las categorías filtradas
+                    selectedProductIds = selectedCategoryProducts
+                        .map((p) => p.id)
+                        .toSet();
                   }
                   selectAllProducts = !selectAllProducts;
                 });
@@ -367,7 +443,7 @@ class _ReportesPageState extends State<ReportesPage> {
         Wrap(
           spacing: 8,
           runSpacing: 8,
-          children: category.products
+          children: selectedCategoryProducts
               .where((product) => product.name
               .toLowerCase()
               .contains(searchController.text.toLowerCase()))
@@ -382,7 +458,10 @@ class _ReportesPageState extends State<ReportesPage> {
                   } else {
                     selectedProductIds.remove(product.id);
                   }
-                  selectAllProducts = selectedProductIds.length == category.products.length;
+                  // Actualizar el estado de "Seleccionar todos" basado en si todos los productos filtrados están seleccionados
+                  selectAllProducts = selectedProductIds.containsAll(
+                      selectedCategoryProducts.map((p) => p.id)
+                  );
                 });
               },
             );
@@ -391,6 +470,7 @@ class _ReportesPageState extends State<ReportesPage> {
       ],
     );
   }
+
 
   Widget _buildDateSelector() {
     return Container(
@@ -476,7 +556,7 @@ class _ReportesPageState extends State<ReportesPage> {
   Widget _buildGenerateButton() {
     bool canGenerate = _startDate != null &&
         _endDate != null &&
-        (selectedCategoryId == null || !selectedProductIds.isEmpty);
+        (selectedCategoryIds.isEmpty || !selectedProductIds.isEmpty);
 
     return ElevatedButton(
       onPressed: canGenerate ? _generateAndDownloadPDF : null,
@@ -539,12 +619,16 @@ class _ReportesPageState extends State<ReportesPage> {
 
       // Obtener datos filtrados
       final List<Product> selectedProducts = [];
-      if (selectedCategoryId != null) {
-        final category = categories.firstWhere((c) => c.id == selectedCategoryId);
-        selectedProducts.addAll(
-            category.products.where((p) => selectedProductIds.contains(p.id))
-        );
+      if (selectedCategoryIds.isNotEmpty) {
+        // Obtener productos de todas las categorías seleccionadas
+        for (var categoryId in selectedCategoryIds) {
+          final category = categories.firstWhere((c) => c.id == categoryId);
+          selectedProducts.addAll(
+              category.products.where((p) => selectedProductIds.contains(p.id))
+          );
+        }
       } else {
+        // Si no hay categorías seleccionadas, incluir todos los productos
         for (var category in categories) {
           selectedProducts.addAll(category.products);
         }
@@ -623,7 +707,7 @@ class _ReportesPageState extends State<ReportesPage> {
                       ),
                       pw.SizedBox(height: 5),
                       pw.Text(
-                        'Categoría: ${selectedCategoryId != null ? categories.firstWhere((c) => c.id == selectedCategoryId).name : "Todas"}',
+                        'Categorías: ${selectedCategoryIds.isEmpty ? "Todas" : categories.where((c) => selectedCategoryIds.contains(c.id)).map((c) => c.name).join(", ")}',
                       ),
                       pw.Text(
                         'Productos seleccionados: ${selectedProducts.length}',
