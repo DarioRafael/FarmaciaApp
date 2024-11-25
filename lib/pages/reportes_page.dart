@@ -126,7 +126,7 @@ class _ReportesPageState extends State<ReportesPage> {
       }
     } catch (e) {
       print('Error al cargar productos: $e');
-    }
+    }//
   }
   @override
   Widget build(BuildContext context) {
