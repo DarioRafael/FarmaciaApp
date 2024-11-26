@@ -28,6 +28,7 @@ dependencies:
   open_filex: ^4.5.0
   responsive_framework: ^0.1.7
   flutter_spinbox: ^0.13.1
+  animations: ^2.0.7
 
 
 dev_dependencies:

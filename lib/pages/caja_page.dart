@@ -16,15 +16,19 @@ class _CajaPageState extends State<CajaPage> {
   double egresos = 0.0;
   bool isLoading = true;
   List<Transaction> transactions = [];
+  List<Transaction> salesTransactions = [];
+  List<Transaction> restockTransactions = [];
 
+  bool _isSalesExpanded = false;
+  bool _isRestockExpanded = false;
 
   @override
   void initState() {
     super.initState();
     _fetchSaldo();
     _fetchTransactions();
-
   }
+
   Future<void> _fetchSaldo() async {
     final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
     final String saldoEndpoint = '/saldo';
@@ -86,19 +90,28 @@ class _CajaPageState extends State<CajaPage> {
               date: DateTime.parse(transaction['fecha']),
             ))
                 .toList();
+
+            // Separate transactions
+            salesTransactions = transactions
+                .where((t) => t.type == TransactionType.income)
+                .toList();
+            restockTransactions = transactions
+                .where((t) => t.type == TransactionType.expense)
+                .toList();
           });
         } else {
-          throw Exception('Formato inesperado o campo "transacciones" no encontrado');
+          throw Exception('Unexpected format or "transacciones" field not found');
         }
       } else {
         throw Exception('Failed to load transactions');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar transacciones: $e')),
+        SnackBar(content: Text('Error loading transactions: $e')),
       );
     }
   }
+
 
 
 
@@ -119,6 +132,7 @@ class _CajaPageState extends State<CajaPage> {
                 isLoading = true;
               });
               _fetchSaldo();
+              _fetchTransactions();
             },
           ),
         ],
@@ -133,21 +147,235 @@ class _CajaPageState extends State<CajaPage> {
               child: _buildSummary(),
             ),
             SliverPadding(
-              padding: const EdgeInsets.all(16),
-              sliver: _buildTransactionsList(),
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              sliver: SliverToBoxAdapter(
+                child: _buildTransactionSections(),
+              ),
             ),
           ],
         ),
       ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          // TODO: Implement add transaction
-        },
-        backgroundColor: Theme.of(context).primaryColor,
-        child: isLoading
-            ? const CircularProgressIndicator(color: Colors.white)
-            : const Icon(Icons.add),
+    );
+  }
+//comienza
+  Widget _buildTransactionSections() {
+    // Ordenar todas las transacciones por fecha más reciente
+    transactions.sort((a, b) => b.date.compareTo(a.date));
+
+    // Tomar solo las 5 transacciones más recientes
+    final recentTransactions = transactions.take(5).toList();
+
+    return Column(
+      children: [
+        // Nueva sección de transacciones recientes
+        if (recentTransactions.isNotEmpty) // Solo mostrar si hay transacciones
+          Container(
+            margin: const EdgeInsets.only(bottom: 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: Text(
+                    'Transacciones Recientes',
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                      color: Theme.of(context).primaryColor,
+                    ),
+                  ),
+                ),
+                ...recentTransactions.map((transaction) =>
+                    _TransactionCard(transaction: transaction)
+                ).toList(),
+              ],
+            ),
+          ),
+
+        // Resto del código permanece igual...
+        _buildExpandableSection(
+          title: 'Ventas',
+          count: salesTransactions.length,
+          isExpanded: _isSalesExpanded,
+          transactions: salesTransactions,
+          onTap: () => setState(() {
+            _isSalesExpanded = !_isSalesExpanded;
+            _isRestockExpanded = false;
+          }),
+        ),
+        const SizedBox(height: 16),
+        _buildExpandableSection(
+          title: 'Reabastecimientos',
+          count: restockTransactions.length,
+          isExpanded: _isRestockExpanded,
+          transactions: restockTransactions,
+          onTap: () => setState(() {
+            _isRestockExpanded = !_isRestockExpanded;
+            _isSalesExpanded = false;
+          }),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildExpandableSection({
+    required String title,
+    required int count,
+    required bool isExpanded,
+    required List<Transaction> transactions,
+    required VoidCallback onTap,
+  }) {
+    // Ordenar transacciones de más reciente a más antigua
+    transactions.sort((a, b) => b.date.compareTo(a.date));
+
+    // Número de transacciones a mostrar inicialmente
+    final int initialTransactionsToShow = 10;
+
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
+      child: Column(
+        children: [
+          ListTile(
+            title: Text(
+              title,
+              style: const TextStyle(
+                fontWeight: FontWeight.bold,
+                fontSize: 16,
+              ),
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  '$count',
+                  style: TextStyle(
+                    color: Theme.of(context).primaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                IconButton(
+                  icon: Icon(
+                    isExpanded
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
+                    color: Theme.of(context).primaryColor,
+                  ),
+                  onPressed: onTap,
+                ),
+              ],
+            ),
+          ),
+          if (isExpanded) ...[
+            const Divider(),
+            ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount:
+              // Si hay más de 10 transacciones, mostrar 10 + botón de cargar más
+              transactions.length > initialTransactionsToShow
+                  ? initialTransactionsToShow + 1
+                  : transactions.length,
+              itemBuilder: (context, index) {
+                // Si es el último índice y hay más transacciones, mostrar botón de cargar más
+                if (transactions.length > initialTransactionsToShow &&
+                    index == initialTransactionsToShow) {
+                  return _buildLoadMoreButton(title, transactions);
+                }
+
+                // Mostrar transacciones normalmente
+                final transaction = transactions[index];
+                return _TransactionCard(transaction: transaction);
+              },
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+// Nuevo método para construir el botón de "Cargar más"
+  Widget _buildLoadMoreButton(String title, List<Transaction> allTransactions) {
+    return InkWell(
+      onTap: () {
+        // Aquí podrías implementar una modal o una nueva pantalla para mostrar todas las transacciones
+        _showAllTransactionsModal(title, allTransactions);
+      },
+      child: Container(
+        padding: const EdgeInsets.all(16),
+        alignment: Alignment.center,
+        child: Text(
+          'Cargar más transacciones',
+          style: TextStyle(
+            color: Theme.of(context).primaryColor,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ),
+    );
+  }
+
+// Método para mostrar un modal con todas las transacciones
+  void _showAllTransactionsModal(String title, List<Transaction> transactions) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      builder: (BuildContext context) {
+        return DraggableScrollableSheet(
+          initialChildSize: 0.9,
+          minChildSize: 0.5,
+          maxChildSize: 0.95,
+          builder: (_, controller) => Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+            ),
+            child: Column(
+              children: [
+                Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        '$title (${transactions.length})',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close, color: Theme.of(context).primaryColor),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
+                  ),
+                ),
+                Expanded(
+                  child: ListView.builder(
+                    controller: controller,
+                    itemCount: transactions.length,
+                    itemBuilder: (context, index) {
+                      final transaction = transactions[index];
+                      return _TransactionCard(transaction: transaction);
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -250,7 +478,7 @@ class _SummaryCard extends StatelessWidget {
     required this.amount,
     required this.icon,
     required this.color,
-  });
+  });//
 
   @override
   Widget build(BuildContext context) {
@@ -306,7 +534,7 @@ class _TransactionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Card(
-      margin: const EdgeInsets.only(bottom: 8),
+      margin: const EdgeInsets.only(bottom: 8, left: 8, right: 8),
       child: ListTile(
         leading: CircleAvatar(
           backgroundColor: transaction.type == TransactionType.income

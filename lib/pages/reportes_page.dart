@@ -52,6 +52,8 @@ class _ReportesPageState extends State<ReportesPage> {
   Set<String> selectedProductIds = {};
   bool selectAllProducts = false;
   TextEditingController searchController = TextEditingController();
+  TextEditingController categorySearchController = TextEditingController();
+
   final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
 
 
@@ -73,62 +75,126 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Future<void> _loadCategorias() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/categorias'));
-      if (response.statusCode == 200) {
-        final List<dynamic> categorias = json.decode(response.body);
-        final List<Category> loadedCategories = categorias.map((c) {
-          categoryNameToId[c['Nombre'].toString()] = c['IDCategoria'].toString();
-          return Category(
-            id: c['IDCategoria'].toString(),
-            name: c['Nombre'].toString(),
-            products: [],
-          );
-        }).toList();
-        setState(() {
-          categories = loadedCategories;
-        });
+      // Solo cargar categorías con ventas si el tipo de reporte es "Ventas"
+      if (_reportType == 'Ventas') {
+        final ventasResponse = await http.get(Uri.parse('$baseUrl/ventas'));
+
+        if (ventasResponse.statusCode == 200) {
+          final Map<String, dynamic> ventasData = json.decode(ventasResponse.body);
+          final List<dynamic> ventas = ventasData['ventas'];
+
+          // Obtener categorías con ventas
+          final Set<String> categoriasConVentas = ventas
+              .map((venta) => venta['IDCategoria'].toString())
+              .toSet();
+
+          final categoriaResponse = await http.get(Uri.parse('$baseUrl/categorias'));
+
+          if (categoriaResponse.statusCode == 200) {
+            final List<dynamic> categorias = json.decode(categoriaResponse.body);
+            final List<Category> loadedCategories = categorias
+                .where((c) => categoriasConVentas.contains(c['IDCategoria'].toString()))
+                .map((c) {
+              final categoryId = c['IDCategoria'].toString();
+              categoryNameToId[c['Nombre'].toString()] = categoryId;
+              return Category(
+                id: categoryId,
+                name: c['Nombre'].toString(),
+                products: [],
+              );
+            }).toList();
+
+            setState(() {
+              categories = loadedCategories;
+            });
+          }
+        }
+      } else {
+        // Si no es reporte de ventas, cargar todas las categorías
+        final categoriaResponse = await http.get(Uri.parse('$baseUrl/categorias'));
+
+        if (categoriaResponse.statusCode == 200) {
+          final List<dynamic> categorias = json.decode(categoriaResponse.body);
+          final List<Category> loadedCategories = categorias.map((c) {
+            final categoryId = c['IDCategoria'].toString();
+            categoryNameToId[c['Nombre'].toString()] = categoryId;
+            return Category(
+              id: categoryId,
+              name: c['Nombre'].toString(),
+              products: [],
+            );
+          }).toList();
+
+          setState(() {
+            categories = loadedCategories;
+          });
+        }
       }
     } catch (e) {
-      print('Error al cargar categorias: $e');
+      print('Error al cargar categorías: $e');
     }
   }
 
   Future<void> _loadProductos() async {
     try {
-      final response = await http.get(Uri.parse('$baseUrl/productos'));
-      if (response.statusCode == 200) {
-        final List<dynamic> productos = json.decode(response.body);
+      // Solo cargar productos con ventas si el tipo de reporte es "Ventas"
+      final ventasResponse = await http.get(Uri.parse('$baseUrl/ventas'));
 
-        final Map<int, Product> productosUnicos = {};
+      if (ventasResponse.statusCode == 200) {
+        final Map<String, dynamic> ventasData = json.decode(ventasResponse.body);
+        final List<dynamic> ventas = ventasData['ventas'];
 
-        for (var p in productos) {
-          final id = p['IDProductos'];
-          final categoryId = categoryNameToId[p['Categoria'].toString()] ?? '';
+        // Obtener productos con ventas
+        final Map<String, dynamic> productosConVentas = {};
+        if (_reportType == 'Ventas') {
+          ventas.forEach((venta) {
+            final productoId = venta['IDProducto'].toString();
+            final categoriaId = venta['IDCategoria'].toString();
 
-          if (!productosUnicos.containsKey(id) && categoryId.isNotEmpty) {
-            productosUnicos[id] = Product(
-              id: p['IDProductos'].toString(),
-              name: p['Nombre'],
-              price: p['Precio'].toDouble(),
-              stock: p['Stock'],
-              categoryId: categoryId,
-            );
-          }
+            if (!productosConVentas.containsKey(productoId)) {
+              productosConVentas[productoId] = {
+                'id': productoId,
+                'name': venta['Producto'],
+                'price': venta['PrecioUnitario'],
+                'categoryId': categoriaId,
+              };
+            }
+          });
         }
 
-        setState(() {
-          for (var category in categories) {
-            category.products.clear();
-            category.products.addAll(
-                productosUnicos.values.where((product) => product.categoryId == category.id)
-            );
-          }
-        });
+        final productosResponse = await http.get(Uri.parse('$baseUrl/productos'));
+
+        if (productosResponse.statusCode == 200) {
+          final List<dynamic> productos = json.decode(productosResponse.body);
+
+          setState(() {
+            for (var category in categories) {
+              category.products.clear();
+              category.products.addAll(
+                  productos
+                      .where((p) =>
+                  (_reportType == 'Inventario' ||
+                      productosConVentas.containsKey(p['IDProductos'].toString())) &&
+                      categoryNameToId[p['Categoria'].toString()] == category.id
+                  )
+                      .map((p) => Product(
+                    id: p['IDProductos'].toString(),
+                    name: p['Nombre'],
+                    price: p['Precio'].toDouble(),
+                    stock: p['Stock'],
+                    categoryId: category.id,
+                  ))
+              );
+            }
+          });
+        }
       }
     } catch (e) {
       print('Error al cargar productos: $e');
-    }//
+    }
   }
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -267,9 +333,20 @@ class _ReportesPageState extends State<ReportesPage> {
   Widget _buildReportTypeButton(String type, IconData icon, bool isSelected) {
     return InkWell(
       onTap: () => setState(() {
+      if (_reportType != type) {
         _reportType = type;
+        categories.clear(); // Limpiar categorías
+        categoryNameToId.clear(); // Limpiar mapeo de nombres
         selectedCategoryIds.clear();
         selectedProductIds.clear();
+        selectAllProducts = false;
+
+        // Recargar categorías y productos
+        _loadCategorias().then((_) {
+          _loadProductos();
+        });
+      }
+
       }),
       child: Container(
         padding: EdgeInsets.symmetric(
@@ -336,35 +413,89 @@ class _ReportesPageState extends State<ReportesPage> {
 
 
   Widget _buildCategorySelector() {
+    // Filtrar categorías basado en el texto de búsqueda
+    List<Category> filteredCategories = categories
+        .where((category) => category.name
+        .toLowerCase()
+        .contains(categorySearchController.text.toLowerCase()))
+        .toList();
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(
-          'Categorías',
-          style: TextStyle(
-            fontWeight: FontWeight.w500,
-            color: Colors.grey.shade700,
-          ),
-        ),
-        const SizedBox(height: 8),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
+        Row(
           children: [
-            FilterChip(
-              label: const Text('Todas'),
-              selected: selectedCategoryIds.isEmpty,
-              onSelected: (bool selected) {
+            Text(
+              'Categorías',
+              style: TextStyle(
+                fontWeight: FontWeight.w500,
+                color: Colors.grey.shade700,
+              ),
+            ),
+            const Spacer(),
+            TextButton.icon(
+              icon: Icon(
+                selectedCategoryIds.length == categories.length
+                    ? Icons.check_box
+                    : Icons.check_box_outline_blank,
+                size: 20,
+              ),
+              label: const Text('Seleccionar todas'),
+              onPressed: () {
                 setState(() {
-                  if (selected) {
-                    // Si se selecciona "Todas", limpiar las selecciones individuales
+                  if (selectedCategoryIds.length == categories.length) {
+                    // Si todas están seleccionadas, deseleccionar todo
                     selectedCategoryIds.clear();
+                  } else {
+                    // Seleccionar todas las categorías
+                    selectedCategoryIds = categories.map((c) => c.id).toSet();
                   }
+                  // Limpiar productos seleccionados cuando cambian las categorías
                   selectedProductIds.clear();
                 });
               },
             ),
-            ...categories.map((category) {
+          ],
+        ),
+        const SizedBox(height: 8),
+        TextField(
+          controller: categorySearchController,
+          decoration: InputDecoration(
+            hintText: 'Buscar categorías...',
+            prefixIcon: const Icon(Icons.search),
+            suffixIcon: categorySearchController.text.isNotEmpty
+                ? IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                setState(() {
+                  categorySearchController.clear();
+                });
+              },
+            )
+                : null,
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
+          ),
+          onChanged: (value) => setState(() {}),
+        ),
+        const SizedBox(height: 16),
+        if (filteredCategories.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'No se encontraron categorías',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: filteredCategories.map((category) {
               return FilterChip(
                 label: Text(category.name),
                 selected: selectedCategoryIds.contains(category.id),
@@ -381,21 +512,17 @@ class _ReportesPageState extends State<ReportesPage> {
                 },
               );
             }).toList(),
-          ],
-        ),
+          ),
       ],
     );
   }
+
 
   Widget _buildProductSelector() {
     // Obtener productos de las categorías seleccionadas o todas si no hay selección
     List<Product> selectedCategoryProducts = [];
 
-    if (selectedCategoryIds.isEmpty) {
-      selectedCategoryProducts = categories
-          .expand((category) => category.products)
-          .toList();
-    } else {
+    if (selectedCategoryIds.isNotEmpty) {
       selectedCategoryProducts = categories
           .where((category) => selectedCategoryIds.contains(category.id))
           .expand((category) => category.products)
@@ -451,33 +578,45 @@ class _ReportesPageState extends State<ReportesPage> {
           onChanged: (value) => setState(() {}),
         ),
         const SizedBox(height: 16),
-        Wrap(
-          spacing: 8,
-          runSpacing: 8,
-          children: selectedCategoryProducts
-              .where((product) => product.name
-              .toLowerCase()
-              .contains(searchController.text.toLowerCase()))
-              .map((product) {
-            return FilterChip(
-              label: Text(product.name),
-              selected: selectedProductIds.contains(product.id),
-              onSelected: (bool selected) {
-                setState(() {
-                  if (selected) {
-                    selectedProductIds.add(product.id);
-                  } else {
-                    selectedProductIds.remove(product.id);
-                  }
-                  // Actualizar el estado de "Seleccionar todos" basado en si todos los productos filtrados están seleccionados
-                  selectAllProducts = selectedProductIds.containsAll(
-                      selectedCategoryProducts.map((p) => p.id)
-                  );
-                });
-              },
-            );
-          }).toList(),
-        ),
+        if (selectedCategoryProducts.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'No se encontraron productos',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          )
+        else
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: selectedCategoryProducts
+                .where((product) => product.name
+                .toLowerCase()
+                .contains(searchController.text.toLowerCase()))
+                .map((product) {
+              return FilterChip(
+                label: Text(product.name),
+                selected: selectedProductIds.contains(product.id),
+                onSelected: (bool selected) {
+                  setState(() {
+                    if (selected) {
+                      selectedProductIds.add(product.id);
+                    } else {
+                      selectedProductIds.remove(product.id);
+                    }
+                    // Actualizar el estado de "Seleccionar todos" basado en si todos los productos filtrados están seleccionados
+                    selectAllProducts = selectedProductIds.containsAll(
+                        selectedCategoryProducts.map((p) => p.id)
+                    );
+                  });
+                },
+              );
+            }).toList(),
+          ),
       ],
     );
   }
@@ -641,14 +780,16 @@ class _ReportesPageState extends State<ReportesPage> {
     try {
       final pdf = pw.Document();
 
-      // Obtener datos filtrados
+      final salesData = await fetchSales();
+      final mappedSalesData = _mapSalesToProducts(salesData);
+
+      // Obtener productos seleccionados
       final List<Product> selectedProducts = [];
       if (selectedCategoryIds.isNotEmpty) {
         for (var categoryId in selectedCategoryIds) {
           final category = categories.firstWhere((c) => c.id == categoryId);
           selectedProducts.addAll(
-              category.products.where((p) => selectedProductIds.contains(p.id))
-          );
+              category.products.where((p) => selectedProductIds.isEmpty || selectedProductIds.contains(p.id)));
         }
       } else {
         for (var category in categories) {
@@ -657,10 +798,10 @@ class _ReportesPageState extends State<ReportesPage> {
       }
 
       // Calcular número de páginas para la tabla de productos
-      final int itemsPerPage = 10;
+      final int itemsPerPage = 20;
       final int totalPages = (selectedProducts.length / itemsPerPage).ceil();
 
-      // Primera página con información general y primera parte de la tabla de productos
+      // Primera página con información general y tabla de productos
       pdf.addPage(
         pw.Page(
           pageFormat: PdfPageFormat.a4,
@@ -672,14 +813,13 @@ class _ReportesPageState extends State<ReportesPage> {
             return pw.Column(
               crossAxisAlignment: pw.CrossAxisAlignment.start,
               children: [
-                // Encabezado y contenido de la primera página...
                 pw.Header(
                   level: 0,
                   child: pw.Row(
                     mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
                     children: [
                       pw.Text(
-                        'Reporte de ${_reportType}',
+                        _reportType == 'Ventas' ? 'Reporte de Ventas' : 'Reporte de Inventario',
                         style: pw.TextStyle(
                           fontSize: 24,
                           fontWeight: pw.FontWeight.bold,
@@ -694,12 +834,11 @@ class _ReportesPageState extends State<ReportesPage> {
                     ],
                   ),
                 ),
-                // Resto del contenido de la primera página...
                 pw.SizedBox(height: 10),
                 pw.Text(
                   'Productos (Página 1 de $totalPages)',
                   style: pw.TextStyle(
-                    fontSize: 16,
+                    fontSize: 14,
                     fontWeight: pw.FontWeight.bold,
                   ),
                 ),
@@ -715,15 +854,19 @@ class _ReportesPageState extends State<ReportesPage> {
                       decoration: const pw.BoxDecoration(
                         color: PdfColors.grey200,
                       ),
-                      children: [
+                      children: _reportType == 'Ventas'
+                          ? [
                         _buildPDFTableHeader('Producto'),
                         _buildPDFTableHeader('Categoría'),
-                        _buildPDFTableHeader('Precio'),
-                        if (_reportType == 'Inventario') _buildPDFTableHeader('Stock'),
-                        if (_reportType == 'Ventas') ...[
-                          _buildPDFTableHeader('Cantidad Vendida'),
-                          _buildPDFTableHeader('Total'),
-                        ],
+                        _buildPDFTableHeader('Precio Unitario'),
+                        _buildPDFTableHeader('Cantidad Vendida'),
+                        _buildPDFTableHeader('Subtotal'),
+                      ]
+                          : [
+                        _buildPDFTableHeader('Producto'),
+                        _buildPDFTableHeader('Categoría'),
+                        _buildPDFTableHeader('Precio Unitario'),
+                        _buildPDFTableHeader('Stock'),
                       ],
                     ),
                     // Datos para esta página
@@ -732,105 +875,32 @@ class _ReportesPageState extends State<ReportesPage> {
                             (c) => c.id == product.categoryId,
                       );
 
-                      return pw.TableRow(
-                        children: [
-                          _buildPDFTableCell(product.name),
-                          _buildPDFTableCell(category.name),
-                          _buildPDFTableCell('\$${product.price.toStringAsFixed(2)}'),
-                          if (_reportType == 'Inventario')
-                            _buildPDFTableCell(product.stock.toString()),
-                          if (_reportType == 'Ventas') ...[
-                            _buildPDFTableCell('0'),
-                            _buildPDFTableCell('\$0.00'),
-                          ],
-                        ],
-                      );
-                    }).toList(),
-                  ],
-                ),
-              ],
-            );
-          },
-        ),
-      );
-
-      // Agregar páginas para el resto de la tabla de productos
-      for (int i = 1; i < totalPages; i++) {
-        pdf.addPage(
-          pw.Page(
-            pageFormat: PdfPageFormat.a4,
-            build: (pw.Context context) {
-              final start = i * itemsPerPage;
-              final end = min(start + itemsPerPage, selectedProducts.length);
-              final pageProducts = selectedProducts.sublist(start, end);
-
-              return pw.Column(
-                crossAxisAlignment: pw.CrossAxisAlignment.start,
-                children: [
-                  pw.Text(
-                    'Productos (Página ${i + 1} de $totalPages)',
-                    style: pw.TextStyle(
-                      fontSize: 16,
-                      fontWeight: pw.FontWeight.bold,
-                    ),
-                  ),
-                  pw.SizedBox(height: 10),
-                  pw.Table(
-                    border: pw.TableBorder.all(
-                      color: PdfColors.grey400,
-                      width: 0.5,
-                    ),
-                    children: [
-                      // Encabezados
-                      pw.TableRow(
-                        decoration: const pw.BoxDecoration(
-                          color: PdfColors.grey200,
-                        ),
-                        children: [
-                          _buildPDFTableHeader('Producto'),
-                          _buildPDFTableHeader('Categoría'),
-                          _buildPDFTableHeader('Precio'),
-                          if (_reportType == 'Inventario') _buildPDFTableHeader('Stock'),
-                          if (_reportType == 'Ventas') ...[
-                            _buildPDFTableHeader('Cantidad Vendida'),
-                            _buildPDFTableHeader('Total'),
-                          ],
-                        ],
-                      ),
-                      // Datos para esta página
-                      ...pageProducts.map((product) {
-                        final category = categories.firstWhere(
-                              (c) => c.id == product.categoryId,
-                        );
-
+                      if (_reportType == 'Ventas') {
                         return pw.TableRow(
                           children: [
                             _buildPDFTableCell(product.name),
                             _buildPDFTableCell(category.name),
                             _buildPDFTableCell('\$${product.price.toStringAsFixed(2)}'),
-                            if (_reportType == 'Inventario')
-                              _buildPDFTableCell(product.stock.toString()),
-                            if (_reportType == 'Ventas') ...[
-                              _buildPDFTableCell('0'),
-                              _buildPDFTableCell('\$0.00'),
-                            ],
+                            _buildPDFTableCell(mappedSalesData[product.id]?['Stock']?.toString() ?? '0'),
+                            _buildPDFTableCell('\$${(mappedSalesData[product.id]?['PrecioSubtotal'] ?? 0.0).toStringAsFixed(2)}'),
                           ],
                         );
-                      }).toList(),
-                    ],
-                  ),
-                ],
-              );
-            },
-          ),
-        );
-      }
-
-      // Página de resumen final
-      pdf.addPage(
-        pw.Page(
-          build: (pw.Context context) {
-            return _buildPDFSummary(selectedProducts);
+                      }
+                      else {
+                      return pw.TableRow(
+                      children: [
+                      _buildPDFTableCell(product.name),
+                      _buildPDFTableCell(category.name),
+                      _buildPDFTableCell('\$${product.price.toStringAsFixed(2)}'),
+                      _buildPDFTableCell(product.stock.toString()),
+                      ],
+                      );
+                      }
+                    }).toList(),
+                  ],
+                ),
+              ],
+            );
           },
         ),
       );
@@ -841,25 +911,68 @@ class _ReportesPageState extends State<ReportesPage> {
         final blob = html.Blob([bytes], 'application/pdf');
         final url = html.Url.createObjectUrlFromBlob(blob);
         final anchor = html.AnchorElement(href: url)
-          ..setAttribute('download', 'reporte.pdf')
+          ..setAttribute('download', _reportType == 'Ventas' ? 'reporte_ventas.pdf' : 'reporte_inventario.pdf')
           ..click();
         html.Url.revokeObjectUrl(url);
       } else {
         final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/reporte.pdf');
+        final file = File('${directory.path}/${_reportType == 'Ventas' ? 'reporte_ventas.pdf' : 'reporte_inventario.pdf'}');
         await file.writeAsBytes(await pdf.save());
-        // Aquí puedes agregar código para abrir el archivo o compartirlo
       }
     } catch (e) {
       print('Error al generar el PDF: $e');
     }
   }
 
+// Llamar a la API para obtener los datos de ventas
+  Future<List<dynamic>> fetchSales() async {
+    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    final String salesEndpoint = '/ventas';
+
+    try {
+      final response = await http.get(Uri.parse('$baseUrl$salesEndpoint'));
+
+      if (response.statusCode == 200) {
+        final jsonData = json.decode(response.body);
+        return jsonData['ventas'];
+      } else {
+        throw Exception('Error al obtener ventas: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error en fetchSales: $e');
+      throw Exception('Error al conectar con la API.');
+    }
+  }
+
+// Asociar las ventas con los productos
+  Map<String, Map<String, dynamic>> _mapSalesToProducts(List<dynamic> salesData) {
+    final Map<String, Map<String, dynamic>> productSales = {};
+
+    for (var sale in salesData) {
+      // Convertir la fecha de la venta a DateTime
+      final saleDate = DateTime.parse(sale['Fecha']);
+
+      // Verificar si la fecha está dentro del rango seleccionado
+      if (saleDate.isAfter(_startDate!) && saleDate.isBefore(_endDate!.add(Duration(days: 1)))) {
+        final productId = sale['IDProducto'].toString();
+        if (productSales.containsKey(productId)) {
+          productSales[productId]!['Stock'] += sale['Stock'] ?? 0;
+          productSales[productId]!['PrecioSubtotal'] += sale['PrecioSubtotal'] ?? 0.0;
+        } else {
+          productSales[productId] = {
+            'Stock': sale['Stock'] ?? 0,
+            'PrecioSubtotal': sale['PrecioSubtotal'] ?? 0.0,
+          };
+        }
+      }
+    }
+    return productSales;
+  }
 
   pw.Widget _buildPDFTableHeader(String text) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
-      alignment: pw.Alignment.center,
+      padding: const pw.EdgeInsets.all(4),
+      alignment: pw.Alignment.centerLeft,
       child: pw.Text(
         text,
         style: pw.TextStyle(
@@ -871,8 +984,8 @@ class _ReportesPageState extends State<ReportesPage> {
 
   pw.Widget _buildPDFTableCell(String text) {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(8),
-      alignment: pw.Alignment.center,
+      padding: const pw.EdgeInsets.all(4),
+      alignment: pw.Alignment.centerLeft,
       child: pw.Text(text),
     );
   }
@@ -895,7 +1008,7 @@ class _ReportesPageState extends State<ReportesPage> {
           pw.Text(
             'Resumen:',
             style: pw.TextStyle(
-              fontSize: 16,
+              fontSize: 14,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
@@ -917,4 +1030,5 @@ class _ReportesPageState extends State<ReportesPage> {
       ),
     );
   }
+
 }
