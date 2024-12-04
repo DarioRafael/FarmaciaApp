@@ -105,6 +105,12 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
 
     if (userRole == 'propietario') {
       return allItems;
+    } else if (userRole == 'supervisor') {
+      return allItems.where((item) =>
+      item['title'] != 'Catálogo' &&
+          item['title'] != 'Usuarios' &&
+          item['title'] != 'Caja'
+      ).toList();
     } else if (userRole == 'empleado') {
       return allItems.take(2).toList();
     }

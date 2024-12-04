@@ -240,7 +240,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                       return 'Correo inválido';
                     return null;
                   },
-                ),
+                ),//
                 TextFormField(
                   controller: passwordController,
                   decoration: InputDecoration(labelText: 'Contraseña'),
@@ -251,7 +251,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                 DropdownButtonFormField<String>(
                   value: rolSeleccionado,
                   decoration: InputDecoration(labelText: 'Rol'),
-                  items: ['propietario', 'empleado'].map((String value) {
+                  items: ['propietario', 'supervisor','empleado'].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
                       child: Text(value),
