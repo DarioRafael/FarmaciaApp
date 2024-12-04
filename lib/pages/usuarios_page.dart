@@ -377,18 +377,21 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
           trailing: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              IconButton(
-                icon: Icon(
-                  esActivoUsuario ? Icons.person_off_outlined : Icons.person_add_outlined,
-                  color: esActivoUsuario ? Colors.red : Colors.green,
+              if (esActivoUsuario)
+                IconButton(
+                  icon: Icon(Icons.person_off_outlined, color: Colors.red),
+                  onPressed: () => _mostrarDialogoCambiarEstado(usuario, 'inactivo'),
                 ),
-                onPressed: () => _mostrarDialogoCambiarEstado(usuario, esActivoUsuario ? 'inactivo' : 'activo'),
-              ),
-              if (!esActivo)
+              if (!esActivoUsuario) ...[
+                IconButton(
+                  icon: Icon(Icons.person_add_outlined, color: Colors.green),
+                  onPressed: () => _mostrarDialogoCambiarEstado(usuario, 'activo'),
+                ),
                 IconButton(
                   icon: Icon(Icons.delete_sweep, color: Colors.red.shade700),
                   onPressed: () => _mostrarDialogoEliminarPermanente(usuario),
                 ),
+              ],
             ],
           ),
         ),
@@ -396,71 +399,210 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
       openBuilder: (context, closeContainer) => _detalleUsuario(usuario),
     );
   }
-
   Widget _detalleUsuario(Map<String, dynamic> usuario) {
+    bool esActivoUsuario = usuario['estado'] == 'activo';
     return Scaffold(
-      appBar: AppBar(
-        title: Text('Detalles de ${usuario['nombre']}'),
-        leading: IconButton(
-          icon: Icon(Icons.close),
-          onPressed: () => Navigator.of(context).pop(),
-        ),
-      ),
-      body: ListView(
-        padding: EdgeInsets.all(16),
-        children: [
-          CircleAvatar(
-            radius: 60,
-            backgroundColor: Theme.of(context).colorScheme.primaryContainer,
-            child: Text(
-              usuario['nombre'][0].toUpperCase(),
-              style: TextStyle(
-                  fontSize: 48,
-                  color: Theme.of(context).colorScheme.primary
+      body: CustomScrollView(
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 250.0,
+            floating: false,
+            pinned: true,
+            flexibleSpace: FlexibleSpaceBar(
+              title: Text(
+                usuario['nombre'],
+                style: TextStyle(
+                  color: Colors.white,
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+              background: Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      esActivoUsuario
+                          ? Colors.green.shade400
+                          : Colors.grey.shade400,
+                      esActivoUsuario
+                          ? Colors.green.shade700
+                          : Colors.grey.shade700,
+                    ],
+                  ),
+                ),
+                child: Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Hero(
+                        tag: 'avatar_${usuario['id']}',
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.white.withOpacity(0.3),
+                          child: Text(
+                            usuario['nombre'][0].toUpperCase(),
+                            style: TextStyle(
+                              fontSize: 48,
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        usuario['correo'],
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
               ),
             ),
           ),
-          SizedBox(height: 16),
-          Center(
-            child: Text(
-              usuario['nombre'],
-              style: Theme.of(context).textTheme.headlineMedium,
-            ),
-          ),
-          Center(
-            child: Text(
-              usuario['correo'],
-              style: Theme.of(context).textTheme.bodyLarge,
-            ),
-          ),
-          SizedBox(height: 16),
-          ListTile(
-            leading: Icon(Icons.person_outline),
-            title: Text('Rol'),
-            subtitle: Text(
-              usuario['rol'],
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: usuario['rol'] == 'propietario' ? Colors.blue : Colors.green,
+          SliverList(
+            delegate: SliverChildListDelegate([
+              Card(
+                margin: EdgeInsets.all(16),
+                elevation: 4,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _buildDetailRow(
+                        icon: Icons.person_outline,
+                        title: 'Rol',
+                        subtitle: usuario['rol'],
+                        color: usuario['rol'] == 'propietario'
+                            ? Colors.blue
+                            : Colors.green,
+                      ),
+                      Divider(),
+                      _buildDetailRow(
+                        icon: esActivoUsuario
+                            ? Icons.check_circle
+                            : Icons.block,
+                        title: 'Estado',
+                        subtitle: usuario['estado'],
+                        color: esActivoUsuario
+                            ? Colors.green
+                            : Colors.red,
+                      ),
+                    ],
+                  ),
+                ),
               ),
-            ),
-          ),
-          ListTile(
-            leading: Icon(usuario['estado'] == 'activo' ? Icons.check_circle : Icons.block),
-            title: Text('Estado'),
-            subtitle: Text(
-              usuario['estado'],
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                color: usuario['estado'] == 'activo' ? Colors.green : Colors.red,
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                  children: [
+                    if (esActivoUsuario)
+                      _buildActionButton(
+                        icon: Icons.person_off_outlined,
+                        label: 'Desactivar',
+                        color: Colors.red,
+                        onPressed: () {
+                          _mostrarDialogoCambiarEstado(usuario, 'inactivo');
+                        },
+                      ),
+                    if (!esActivoUsuario) ...[
+                      _buildActionButton(
+                        icon: Icons.person_add_outlined,
+                        label: 'Activar',
+                        color: Colors.green,
+                        onPressed: () {
+                          _mostrarDialogoCambiarEstado(usuario, 'activo');
+                        },
+                      ),
+                      _buildActionButton(
+                        icon: Icons.delete_sweep,
+                        label: 'Eliminar',
+                        color: Colors.red,
+                        onPressed: () {
+                          _mostrarDialogoEliminarPermanente(usuario);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
               ),
-            ),
+              SizedBox(height: 32),
+            ]),
           ),
         ],
       ),
     );
   }
 
+// Método auxiliar para construir filas de detalles
+  Widget _buildDetailRow({
+    required IconData icon,
+    required String title,
+    required String subtitle,
+    required Color color,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 8.0),
+      child: Row(
+        children: [
+          Icon(icon, color: color, size: 28),
+          SizedBox(width: 16),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              Text(
+                subtitle,
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: color,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+// Método auxiliar para construir botones de acción
+  Widget _buildActionButton({
+    required IconData icon,
+    required String label,
+    required Color color,
+    required VoidCallback onPressed,
+  }) {
+    return ElevatedButton.icon(
+      icon: Icon(icon),
+      label: Text(label),
+      style: ElevatedButton.styleFrom(
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      ),
+      onPressed: onPressed,
+    );
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
