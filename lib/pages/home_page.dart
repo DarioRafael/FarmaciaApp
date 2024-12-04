@@ -102,7 +102,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'description': 'Control de ingresos y egresos'
       },
     ];
-
     if (userRole == 'propietario') {
       return allItems;
     } else if (userRole == 'supervisor') {
