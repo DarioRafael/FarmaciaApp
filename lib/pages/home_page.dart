@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop_app/pages/usuarios_page.dart';
-import 'package:universal_html/html.dart';
 import 'cobro_page.dart';
 import 'catalogo_page.dart';
 import 'inventario_page.dart';
