@@ -21,22 +21,24 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   late AnimationController _controller;
   late Animation<double> _animation;
 
-  // Definiendo la paleta de colores para la farmacia
-  static const primaryBlue = Color(0xFF1E88E5);  // Azul principal
-  static const secondaryBlue = Color(0xFF42A5F5); // Azul secundario
-  static const accentBlue = Color(0xFF64B5F6);   // Azul claro para acentos
+  // Paleta de colores refinada para una farmacia elegante
+  static const primaryBlue = Color(0xFF1A237E);    // Azul oscuro elegante
+  static const secondaryBlue = Color(0xFF283593);  // Azul medio
+  static const accentBlue = Color(0xFF3949AB);     // Azul acento
+  static const lightBlue = Color(0xFFE8EAF6);      // Azul muy claro para fondos
+  static const white = Colors.white;
 
   @override
   void initState() {
     super.initState();
     _loadUserRole();
     _controller = AnimationController(
-      duration: const Duration(milliseconds: 800),
+      duration: const Duration(milliseconds: 1000),
       vsync: this,
     );
     _animation = CurvedAnimation(
       parent: _controller,
-      curve: Curves.easeInOut,
+      curve: Curves.easeOutQuart,
     );
     _controller.forward();
   }
@@ -61,35 +63,32 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'icon': Icons.point_of_sale,
         'page': CobroPage(),
         'color': primaryBlue,
-        'description': 'Gestionar ventas y pagos'
+        'description': 'Gestionar ventas y pagos',
+        'gradient': [accentBlue, primaryBlue]
       },
       {
         'title': 'Inventario',
-        'icon': Icons.medication,
+        'icon': Icons.medication_liquid,
         'page': InventarioPage(),
         'color': secondaryBlue,
-        'description': 'Control de medicamentos'
-      },
-      {
-        'title': 'Abastecimiento',
-        'icon': Icons.local_shipping,
-        'page': ReabastecimientosPage(),
-        'color': accentBlue,
-        'description': 'Gestionar pedidos'
+        'description': 'Control de medicamentos',
+        'gradient': [secondaryBlue, primaryBlue]
       },
       {
         'title': 'Personal',
-        'icon': Icons.people,
+        'icon': Icons.people_alt_rounded,
         'page': UsuariosPage(),
         'color': primaryBlue,
-        'description': 'Administrar empleados'
+        'description': 'Administrar empleados',
+        'gradient': [accentBlue, secondaryBlue]
       },
       {
         'title': 'Caja',
-        'icon': Icons.account_balance,
+        'icon': Icons.account_balance_rounded,
         'page': CajaPage(),
         'color': secondaryBlue,
-        'description': 'Control financiero'
+        'description': 'Control financiero',
+        'gradient': [secondaryBlue, primaryBlue]
       },
     ];
 
@@ -134,7 +133,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     }
 
     final menuItems = _getMenuItemsByRole();
-    final padding = smallScreen ? 8.0 : 16.0;
+    final padding = smallScreen ? 12.0 : 20.0;
 
     return WillPopScope(
       onWillPop: () async {
@@ -146,46 +145,66 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return false;
       },
       child: Scaffold(
-        backgroundColor: Colors.grey[50], // Fondo muy claro
+        backgroundColor: lightBlue,
         body: SafeArea(
           child: CustomScrollView(
+            physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
-                expandedHeight: smallScreen ? 120.0 : 200.0,
+                expandedHeight: smallScreen ? 140.0 : 220.0,
                 floating: false,
                 pinned: true,
                 stretch: true,
+                elevation: 0,
                 backgroundColor: primaryBlue,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'Farmacia - ${_capitalizeRole(userRole ?? "")}',
+                    'Farmacia ${_capitalizeRole(userRole ?? "")}',
                     style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w500,
-                      fontSize: smallScreen ? 16.0 : 20.0,
+                      color: white,
+                      fontWeight: FontWeight.w600,
+                      fontSize: smallScreen ? 18.0 : 22.0,
+                      letterSpacing: 0.5,
                     ),
                   ),
                   titlePadding: EdgeInsets.only(
                     left: padding * 2,
-                    bottom: padding,
+                    bottom: padding * 1.5,
                     right: padding * 2,
                   ),
                   background: Container(
                     decoration: BoxDecoration(
                       gradient: LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
+                        begin: Alignment.topRight,
+                        end: Alignment.bottomLeft,
                         colors: [
                           primaryBlue,
                           secondaryBlue,
+                          accentBlue,
                         ],
                       ),
+                    ),
+                    child: Stack(
+                      children: [
+                        Positioned(
+                          right: -50,
+                          top: -50,
+                          child: Container(
+                            width: 200,
+                            height: 200,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: white.withOpacity(0.1),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
                 actions: [
                   IconButton(
-                    icon: const Icon(Icons.logout, color: Colors.white),
+                    icon: const Icon(Icons.logout_rounded, color: white),
                     onPressed: () async {
                       final shouldLogout = await _showLogoutConfirmationDialog(context);
                       if (shouldLogout) {
@@ -213,7 +232,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           menuItems[index]['title'],
                           menuItems[index]['icon'],
                           menuItems[index]['page'],
-                          menuItems[index]['color'],
+                          menuItems[index]['gradient'],
                           menuItems[index]['description'],
                           smallScreen,
                         ),
@@ -235,13 +254,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       String title,
       IconData icon,
       Widget page,
-      Color color,
+      List<Color> gradient,
       String description,
       bool smallScreen,
       ) {
     return Card(
-      elevation: 2,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      elevation: 4,
+      shadowColor: primaryBlue.withOpacity(0.3),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -249,49 +271,82 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             MaterialPageRoute(builder: (context) => page),
           );
         },
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(16),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                Colors.white,
-                Colors.grey[50]!,
+                white,
+                lightBlue.withOpacity(0.5),
               ],
             ),
           ),
-          child: Padding(
-            padding: EdgeInsets.all(smallScreen ? 12.0 : 16.0),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
+          child: Stack(
+            children: [
+              Positioned(
+                right: -20,
+                bottom: -20,
+                child: Icon(
                   icon,
-                  size: smallScreen ? 36 : 48,
-                  color: color,
+                  size: smallScreen ? 80 : 100,
+                  color: gradient[0].withOpacity(0.1),
                 ),
-                SizedBox(height: smallScreen ? 8 : 12),
-                Text(
-                  title,
-                  style: TextStyle(
-                    fontSize: smallScreen ? 16 : 20,
-                    fontWeight: FontWeight.bold,
-                    color: primaryBlue,
-                  ),
+              ),
+              Padding(
+                padding: EdgeInsets.all(smallScreen ? 16.0 : 20.0),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      padding: EdgeInsets.all(smallScreen ? 12 : 16),
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          colors: gradient,
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: gradient[0].withOpacity(0.3),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        icon,
+                        size: smallScreen ? 32 : 40,
+                        color: white,
+                      ),
+                    ),
+                    SizedBox(height: smallScreen ? 12 : 16),
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: smallScreen ? 18 : 22,
+                        fontWeight: FontWeight.bold,
+                        color: primaryBlue,
+                        letterSpacing: 0.5,
+                      ),
+                    ),
+                    SizedBox(height: smallScreen ? 6 : 8),
+                    Text(
+                      description,
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: smallScreen ? 13 : 15,
+                        color: Colors.grey[700],
+                        letterSpacing: 0.3,
+                      ),
+                    ),
+                  ],
                 ),
-                SizedBox(height: smallScreen ? 4 : 8),
-                Text(
-                  description,
-                  textAlign: TextAlign.center,
-                  style: TextStyle(
-                    fontSize: smallScreen ? 12 : 14,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
@@ -309,27 +364,41 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-        contentPadding: EdgeInsets.all(smallScreen ? 16.0 : 24.0),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        backgroundColor: white,
+        contentPadding: EdgeInsets.all(smallScreen ? 20.0 : 28.0),
         title: Text(
           '¿Cerrar sesión?',
           style: TextStyle(
-            fontSize: smallScreen ? 18 : 20,
+            fontSize: smallScreen ? 20 : 22,
             color: primaryBlue,
+            fontWeight: FontWeight.bold,
+            letterSpacing: 0.5,
           ),
         ),
         content: Text(
           '¿Estás seguro de que deseas cerrar sesión?',
-          style: TextStyle(fontSize: smallScreen ? 14 : 16),
+          style: TextStyle(
+            fontSize: smallScreen ? 15 : 17,
+            color: Colors.grey[800],
+            letterSpacing: 0.3,
+          ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
+            style: TextButton.styleFrom(
+              padding: EdgeInsets.symmetric(
+                horizontal: smallScreen ? 16.0 : 24.0,
+                vertical: smallScreen ? 8.0 : 12.0,
+              ),
+            ),
             child: Text(
               'Cancelar',
               style: TextStyle(
                 color: Colors.grey[600],
-                fontSize: smallScreen ? 14 : 16,
+                fontSize: smallScreen ? 15 : 17,
+                fontWeight: FontWeight.w500,
               ),
             ),
           ),
@@ -337,19 +406,23 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
               backgroundColor: primaryBlue,
+              elevation: 2,
+              shadowColor: primaryBlue.withOpacity(0.3),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(12),
               ),
               padding: EdgeInsets.symmetric(
-                horizontal: smallScreen ? 16.0 : 24.0,
-                vertical: smallScreen ? 8.0 : 12.0,
+                horizontal: smallScreen ? 20.0 : 28.0,
+                vertical: smallScreen ? 12.0 : 16.0,
               ),
             ),
             child: Text(
               'Cerrar sesión',
               style: TextStyle(
-                  color: Colors.white,
-                  fontSize: smallScreen ? 14 : 16
+                color: white,
+                fontSize: smallScreen ? 15 : 17,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 0.5,
               ),
             ),
           ),
