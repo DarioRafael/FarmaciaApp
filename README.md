@@ -1,4 +1,4 @@
-# shop_app
+# Farmacia_APP
 
 A new Flutter project.
 
