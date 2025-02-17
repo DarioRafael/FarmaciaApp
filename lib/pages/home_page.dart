@@ -21,6 +21,11 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   late AnimationController _controller;
   late Animation<double> _animation;
 
+  // Definiendo la paleta de colores para la farmacia
+  static const primaryBlue = Color(0xFF1E88E5);  // Azul principal
+  static const secondaryBlue = Color(0xFF42A5F5); // Azul secundario
+  static const accentBlue = Color(0xFF64B5F6);   // Azul claro para acentos
+
   @override
   void initState() {
     super.initState();
@@ -52,76 +57,64 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
   List<Map<String, dynamic>> _getMenuItemsByRole() {
     final List<Map<String, dynamic>> allItems = [
       {
-        'title': 'Cobrar',
-        'icon': Icons.attach_money,
+        'title': 'Ventas',
+        'icon': Icons.point_of_sale,
         'page': CobroPage(),
-        'color': Colors.green.shade400,
+        'color': primaryBlue,
         'description': 'Gestionar ventas y pagos'
       },
       {
-        'title': 'Catálogo',
-        'icon': Icons.inventory_2,
-        'page': CatalogoPage(),
-        'color': Colors.blue.shade400,
-        'description': 'Ver productos disponibles'
-      },
-      {
         'title': 'Inventario',
-        'icon': Icons.storage,
+        'icon': Icons.medication,
         'page': InventarioPage(),
-        'color': Colors.orange.shade400,
-        'description': 'Control de existencias'
+        'color': secondaryBlue,
+        'description': 'Control de medicamentos'
       },
       {
-        'title': 'Reabastecimientos',
+        'title': 'Abastecimiento',
         'icon': Icons.local_shipping,
         'page': ReabastecimientosPage(),
-        'color': Colors.purple.shade400,
+        'color': accentBlue,
         'description': 'Gestionar pedidos'
       },
       {
-        'title': 'Reportes',
-        'icon': Icons.analytics,
-        'page': ReportesPage(),
-        'color': Colors.red.shade400,
-        'description': 'Análisis y estadísticas'
-      },
-      {
-        'title': 'Usuarios',
-        'icon': Icons.group,
+        'title': 'Personal',
+        'icon': Icons.people,
         'page': UsuariosPage(),
-        'color': Colors.teal.shade400,
-        'description': 'Administrar personal'
+        'color': primaryBlue,
+        'description': 'Administrar empleados'
       },
       {
         'title': 'Caja',
-        'icon': Icons.shopping_bag,
+        'icon': Icons.account_balance,
         'page': CajaPage(),
-        'color': Colors.deepPurple.shade400,
-        'description': 'Control de ingresos y egresos'
+        'color': secondaryBlue,
+        'description': 'Control financiero'
       },
     ];
+
     if (userRole == 'propietario') {
       return allItems;
     } else if (userRole == 'supervisor') {
       return allItems.where((item) =>
-      item['title'] != 'Catálogo' &&
-          item['title'] != 'Usuarios' &&
+      item['title'] != 'Personal' &&
           item['title'] != 'Caja'
       ).toList();
     } else if (userRole == 'empleado') {
-      return allItems.take(2).toList();
+      return allItems.where((item) =>
+      item['title'] == 'Ventas' ||
+          item['title'] == 'Inventario'
+      ).toList();
     }
     return [];
   }
-//
+
   @override
   Widget build(BuildContext context) {
     final screenSize = MediaQuery.of(context).size;
     final isPortrait = screenSize.height > screenSize.width;
     final smallScreen = screenSize.width < 400;
 
-    // Cálculo dinámico de columnas basado en el tamaño de la pantalla y orientación
     int crossAxisCount;
     if (screenSize.width > 1200) {
       crossAxisCount = 3;
@@ -131,7 +124,6 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       crossAxisCount = isPortrait ? 1 : 2;
     }
 
-    // Ajuste dinámico del aspect ratio basado en el tamaño de pantalla
     double childAspectRatio;
     if (smallScreen) {
       childAspectRatio = isPortrait ? 1.2 : 1.5;
@@ -154,6 +146,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         return false;
       },
       child: Scaffold(
+        backgroundColor: Colors.grey[50], // Fondo muy claro
         body: SafeArea(
           child: CustomScrollView(
             slivers: [
@@ -162,12 +155,13 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 floating: false,
                 pinned: true,
                 stretch: true,
+                backgroundColor: primaryBlue,
                 flexibleSpace: FlexibleSpaceBar(
                   title: Text(
-                    'Bienvenido, ${_capitalizeRole(userRole ?? "")}',
+                    'Farmacia - ${_capitalizeRole(userRole ?? "")}',
                     style: TextStyle(
                       color: Colors.white,
-                      fontWeight: FontWeight.bold,
+                      fontWeight: FontWeight.w500,
                       fontSize: smallScreen ? 16.0 : 20.0,
                     ),
                   ),
@@ -182,8 +176,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
                         colors: [
-                          Theme.of(context).primaryColor,
-                          Theme.of(context).primaryColor.withOpacity(0.8),
+                          primaryBlue,
+                          secondaryBlue,
                         ],
                       ),
                     ),
@@ -246,8 +240,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       bool smallScreen,
       ) {
     return Card(
-      elevation: 4,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      elevation: 2,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
         onTap: () {
           Navigator.push(
@@ -255,16 +249,16 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             MaterialPageRoute(builder: (context) => page),
           );
         },
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(12),
         child: Container(
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: [
-                color,
-                color.withOpacity(0.8),
+                Colors.white,
+                Colors.grey[50]!,
               ],
             ),
           ),
@@ -276,7 +270,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 Icon(
                   icon,
                   size: smallScreen ? 36 : 48,
-                  color: Colors.white,
+                  color: color,
                 ),
                 SizedBox(height: smallScreen ? 8 : 12),
                 Text(
@@ -284,7 +278,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   style: TextStyle(
                     fontSize: smallScreen ? 16 : 20,
                     fontWeight: FontWeight.bold,
-                    color: Colors.white,
+                    color: primaryBlue,
                   ),
                 ),
                 SizedBox(height: smallScreen ? 4 : 8),
@@ -293,7 +287,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     fontSize: smallScreen ? 12 : 14,
-                    color: Colors.white.withOpacity(0.9),
+                    color: Colors.grey[600],
                   ),
                 ),
               ],
@@ -315,11 +309,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     return await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
         contentPadding: EdgeInsets.all(smallScreen ? 16.0 : 24.0),
         title: Text(
           '¿Cerrar sesión?',
-          style: TextStyle(fontSize: smallScreen ? 18 : 20),
+          style: TextStyle(
+            fontSize: smallScreen ? 18 : 20,
+            color: primaryBlue,
+          ),
         ),
         content: Text(
           '¿Estás seguro de que deseas cerrar sesión?',
@@ -331,7 +328,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             child: Text(
               'Cancelar',
               style: TextStyle(
-                color: Theme.of(context).primaryColor,
+                color: Colors.grey[600],
                 fontSize: smallScreen ? 14 : 16,
               ),
             ),
@@ -339,7 +336,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
           ElevatedButton(
             onPressed: () => Navigator.of(context).pop(true),
             style: ElevatedButton.styleFrom(
-              backgroundColor: Theme.of(context).primaryColor,
+              backgroundColor: primaryBlue,
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -352,7 +349,8 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
               'Cerrar sesión',
               style: TextStyle(
                   color: Colors.white,
-                  fontSize: smallScreen ? 14 : 16),
+                  fontSize: smallScreen ? 14 : 16
+              ),
             ),
           ),
         ],

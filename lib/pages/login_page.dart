@@ -22,11 +22,16 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
 
+  // Define los colores principales
+  static const primaryBlue = Color(0xFF1E88E5);
+  static const secondaryBlue = Color(0xFF64B5F6);
+  static const accentBlue = Color(0xFFBBDEFB);
+
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
-      duration: const Duration(milliseconds: 1500),
+      duration: const Duration(milliseconds: 1800),
       vsync: this,
     );
     _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
@@ -37,11 +42,10 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     );
     _animationController.forward();
 
-    // Configurar el tema del sistema
     SystemChrome.setSystemUIOverlayStyle(
       const SystemUiOverlayStyle(
         statusBarColor: Colors.transparent,
-        statusBarIconBrightness: Brightness.light,
+        statusBarIconBrightness: Brightness.dark,
       ),
     );
   }
@@ -180,14 +184,15 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     return WillPopScope(
       onWillPop: _onWillPop,
       child: Scaffold(
+        backgroundColor: Colors.white,
         body: Container(
           decoration: BoxDecoration(
             gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+              begin: Alignment.topRight,
+              end: Alignment.bottomLeft,
               colors: [
-                const Color(0xFF004D40),
-                const Color(0xFF004D40).withOpacity(0.8),
+                Colors.white,
+                accentBlue.withOpacity(0.3),
               ],
             ),
           ),
@@ -200,47 +205,59 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      // Logo o Imagen
+                      // Logo Container
                       Container(
-                        padding: const EdgeInsets.all(16),
+                        padding: const EdgeInsets.all(20),
                         decoration: BoxDecoration(
+                          color: Colors.white,
                           shape: BoxShape.circle,
-                          color: Colors.white.withOpacity(0.1),
+                          boxShadow: [
+                            BoxShadow(
+                              color: primaryBlue.withOpacity(0.2),
+                              blurRadius: 20,
+                              spreadRadius: 5,
+                            ),
+                          ],
                         ),
                         child: Icon(
-                          Icons.store_rounded,
-                          size: isSmallScreen ? 64 : 80,
-                          color: Colors.white,
+                          Icons.local_pharmacy_rounded,
+                          size: isSmallScreen ? 70 : 85,
+                          color: primaryBlue,
                         ),
                       ),
                       SizedBox(height: padding),
-                      // Título
+
+                      // Título Principal
                       Text(
-                        'La Modelo',
+                        'Farmacia Cinnamoroll',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 28 : 32,
                           fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                          color: primaryBlue,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Bienvenido de nuevo',
+                        'Cuidando tu salud con una sonrisa',
                         style: TextStyle(
                           fontSize: isSmallScreen ? 16 : 18,
-                          color: Colors.white70,
+                          color: secondaryBlue,
+                          letterSpacing: 0.5,
                         ),
                       ),
                       SizedBox(height: padding * 1.5),
-                      // Formulario
+
+                      // Formulario Card
                       Card(
-                        elevation: 8,
+                        elevation: 10,
+                        shadowColor: primaryBlue.withOpacity(0.2),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: BorderRadius.circular(25),
                         ),
                         child: Container(
                           width: min(size.width * 0.9, 400),
-                          padding: EdgeInsets.all(padding),
+                          padding: EdgeInsets.all(padding * 1.2),
                           child: Form(
                             key: _formKey,
                             child: Column(
@@ -251,18 +268,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   label: 'Correo electrónico',
                                   hint: 'ejemplo@correo.com',
                                   keyboardType: TextInputType.emailAddress,
-                                  validator: (value) {
-                                    if (value?.isEmpty ?? true) {
-                                      return 'Ingresa tu correo electrónico';
-                                    }
-                                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value!)) {
-                                      return 'Ingresa un correo válido';
-                                    }
-                                    return null;
-                                  },
-                                  onFieldSubmitted: (_) {
-                                    FocusScope.of(context).requestFocus(_passwordFocusNode);
-                                  },
                                 ),
                                 SizedBox(height: padding),
                                 _buildTextField(
@@ -272,31 +277,23 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   hint: '••••••••',
                                   obscureText: !_isPasswordVisible,
                                   focusNode: _passwordFocusNode,
-                                  validator: (value) {
-                                    if (value?.isEmpty ?? true) {
-                                      return 'Ingresa tu contraseña';
-                                    }
-                                    return null;
-                                  },
-                                  suffixIcon: IconButton(
-                                    icon: Icon(
-                                      _isPasswordVisible
-                                          ? Icons.visibility_off
-                                          : Icons.visibility,
-                                      color: Colors.grey,
-                                    ),
-                                    onPressed: () {
-                                      setState(() {
-                                        _isPasswordVisible = !_isPasswordVisible;
-                                      });
-                                    },
-                                  ),
-                                  onFieldSubmitted: (_) {
-                                    if (!_isLoading) _login();
-                                  },
+                                  suffixIcon: _buildPasswordVisibilityToggle(),
                                 ),
                                 SizedBox(height: padding * 1.5),
                                 _buildLoginButton(isSmallScreen),
+                                SizedBox(height: padding),
+                                TextButton(
+                                  onPressed: () {
+                                    // Implementar recuperación de contraseña
+                                  },
+                                  child: Text(
+                                    '¿Olvidaste tu contraseña?',
+                                    style: TextStyle(
+                                      color: secondaryBlue,
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ),
                               ],
                             ),
                           ),
@@ -321,8 +318,6 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
     TextInputType? keyboardType,
     bool obscureText = false,
     FocusNode? focusNode,
-    String? Function(String?)? validator,
-    void Function(String)? onFieldSubmitted,
     Widget? suffixIcon,
   }) {
     return TextFormField(
@@ -335,48 +330,75 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
-        prefixIcon: Icon(icon, color: const Color(0xFF004D40)),
+        prefixIcon: Icon(icon, color: primaryBlue),
         suffixIcon: suffixIcon,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(15),
           borderSide: const BorderSide(width: 1),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: BorderSide(color: Colors.grey.shade300),
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: accentBlue),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Color(0xFF004D40), width: 2),
-        ),
-        errorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 1),
-        ),
-        focusedErrorBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(12),
-          borderSide: const BorderSide(color: Colors.red, width: 2),
+          borderRadius: BorderRadius.circular(15),
+          borderSide: BorderSide(color: primaryBlue, width: 2),
         ),
         filled: true,
-        fillColor: Colors.grey.shade50,
+        fillColor: Colors.white,
+        labelStyle: TextStyle(color: secondaryBlue),
+        floatingLabelStyle: TextStyle(color: primaryBlue),
       ),
-      validator: validator,
-      onFieldSubmitted: onFieldSubmitted,
+      validator: (value) {
+        if (value?.isEmpty ?? true) {
+          return 'Este campo es requerido';
+        }
+        return null;
+      },
+    );
+  }
+
+  Widget _buildPasswordVisibilityToggle() {
+    return IconButton(
+      icon: Icon(
+        _isPasswordVisible ? Icons.visibility_off : Icons.visibility,
+        color: secondaryBlue,
+      ),
+      onPressed: () {
+        setState(() {
+          _isPasswordVisible = !_isPasswordVisible;
+        });
+      },
     );
   }
 
   Widget _buildLoginButton(bool isSmallScreen) {
-    return SizedBox(
+    return Container(
       width: double.infinity,
-      height: isSmallScreen ? 48 : 56,
+      height: isSmallScreen ? 50 : 56,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: LinearGradient(
+          colors: [primaryBlue, secondaryBlue],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: primaryBlue.withOpacity(0.3),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
       child: ElevatedButton(
         onPressed: _isLoading ? null : _login,
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(0xFF004D40),
+          backgroundColor: Colors.transparent,
+          shadowColor: Colors.transparent,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(15),
           ),
-          elevation: 2,
         ),
         child: _isLoading
             ? const SizedBox(
@@ -393,6 +415,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
             fontSize: isSmallScreen ? 16 : 18,
             fontWeight: FontWeight.bold,
             color: Colors.white,
+            letterSpacing: 0.5,
           ),
         ),
       ),
