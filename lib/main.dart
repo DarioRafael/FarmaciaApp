@@ -22,7 +22,7 @@ class _MyAppState extends State<MyApp> {
   void initState() {
     super.initState();
     _checkLoginStatus();
-  }
+  }//
 
   Future<void> _checkLoginStatus() async {
     final prefs = await SharedPreferences.getInstance();
