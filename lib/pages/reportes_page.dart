@@ -6,9 +6,8 @@ import 'package:path_provider/path_provider.dart';
 import 'dart:io';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:universal_html/html.dart' as html;
-import 'dart:convert';
-import 'package:http/http.dart' as http;
 import 'dart:math';
+import 'package:google_fonts/google_fonts.dart';
 
 class Category {
   final String id;
@@ -54,11 +53,17 @@ class _ReportesPageState extends State<ReportesPage> {
   TextEditingController searchController = TextEditingController();
   TextEditingController categorySearchController = TextEditingController();
 
-  final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+  bool get isSmallScreen =>
+      MediaQuery
+          .of(context)
+          .size
+          .width < 600;
 
-
-  bool get isSmallScreen => MediaQuery.of(context).size.width < 600;
-  bool get isMediumScreen => MediaQuery.of(context).size.width < 1024;
+  bool get isMediumScreen =>
+      MediaQuery
+          .of(context)
+          .size
+          .width < 1024;
 
   @override
   void initState() {
@@ -66,151 +71,67 @@ class _ReportesPageState extends State<ReportesPage> {
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
-    _loadCategorias().then((_) {
-      _loadProductos();
-    });
+    _initializeCategoriesAndProducts();
   }
 
+  void _initializeCategoriesAndProducts() {
+    categories = [
+      Category(
+        id: '1',
+        name: 'Tabletas',
+        products: [
+          Product(id: '1',
+              name: 'Paracetamol',
+              price: 10.0,
+              stock: 100,
+              categoryId: '1'),
+          Product(id: '2',
+              name: 'Ibuprofeno',
+              price: 15.0,
+              stock: 150,
+              categoryId: '1'),
+        ],
+      ),
+      Category(
+        id: '2',
+        name: 'Bebibles',
+        products: [
+          Product(id: '3',
+              name: 'Jarabe para la tos',
+              price: 20.0,
+              stock: 50,
+              categoryId: '2'),
+          Product(id: '4',
+              name: 'Vitamina C',
+              price: 25.0,
+              stock: 75,
+              categoryId: '2'),
+        ],
+      ),
+    ];
 
-
-  Future<void> _loadCategorias() async {
-    try {
-      // Solo cargar categorías con ventas si el tipo de reporte es "Ventas"
-      if (_reportType == 'Ventas') {
-        final ventasResponse = await http.get(Uri.parse('$baseUrl/ventas'));
-
-        if (ventasResponse.statusCode == 200) {
-          final Map<String, dynamic> ventasData = json.decode(ventasResponse.body);
-          final List<dynamic> ventas = ventasData['ventas'];
-
-          // Obtener categorías con ventas
-          final Set<String> categoriasConVentas = ventas
-              .map((venta) => venta['IDCategoria'].toString())
-              .toSet();
-
-          final categoriaResponse = await http.get(Uri.parse('$baseUrl/categorias'));
-
-          if (categoriaResponse.statusCode == 200) {
-            final List<dynamic> categorias = json.decode(categoriaResponse.body);
-            final List<Category> loadedCategories = categorias
-                .where((c) => categoriasConVentas.contains(c['IDCategoria'].toString()))
-                .map((c) {
-              final categoryId = c['IDCategoria'].toString();
-              categoryNameToId[c['Nombre'].toString()] = categoryId;
-              return Category(
-                id: categoryId,
-                name: c['Nombre'].toString(),
-                products: [],
-              );
-            }).toList();
-
-            setState(() {
-              categories = loadedCategories;
-            });
-          }
-        }
-      } else {
-        // Si no es reporte de ventas, cargar todas las categorías
-        final categoriaResponse = await http.get(Uri.parse('$baseUrl/categorias'));
-
-        if (categoriaResponse.statusCode == 200) {
-          final List<dynamic> categorias = json.decode(categoriaResponse.body);
-          final List<Category> loadedCategories = categorias.map((c) {
-            final categoryId = c['IDCategoria'].toString();
-            categoryNameToId[c['Nombre'].toString()] = categoryId;
-            return Category(
-              id: categoryId,
-              name: c['Nombre'].toString(),
-              products: [],
-            );
-          }).toList();
-
-          setState(() {
-            categories = loadedCategories;
-          });
-        }
-      }
-    } catch (e) {
-      print('Error al cargar categorías: $e');
+    for (var category in categories) {
+      categoryNameToId[category.name] = category.id;
     }
   }
 
-  Future<void> _loadProductos() async {
-    try {
-      // Solo cargar productos con ventas si el tipo de reporte es "Ventas"
-      final ventasResponse = await http.get(Uri.parse('$baseUrl/ventas'));
-
-      if (ventasResponse.statusCode == 200) {
-        final Map<String, dynamic> ventasData = json.decode(ventasResponse.body);
-        final List<dynamic> ventas = ventasData['ventas'];
-
-        // Obtener productos con ventas
-        final Map<String, dynamic> productosConVentas = {};
-        if (_reportType == 'Ventas') {
-          ventas.forEach((venta) {
-            final productoId = venta['IDProducto'].toString();
-            final categoriaId = venta['IDCategoria'].toString();
-
-            if (!productosConVentas.containsKey(productoId)) {
-              productosConVentas[productoId] = {
-                'id': productoId,
-                'name': venta['Producto'],
-                'price': venta['PrecioUnitario'],
-                'categoryId': categoriaId,
-              };
-            }
-          });
-        }
-
-        final productosResponse = await http.get(Uri.parse('$baseUrl/productos'));
-
-        if (productosResponse.statusCode == 200) {
-          final List<dynamic> productos = json.decode(productosResponse.body);
-
-          setState(() {
-            for (var category in categories) {
-              category.products.clear();
-              category.products.addAll(
-                  productos
-                      .where((p) =>
-                  (_reportType == 'Inventario' ||
-                      productosConVentas.containsKey(p['IDProductos'].toString())) &&
-                      categoryNameToId[p['Categoria'].toString()] == category.id
-                  )
-                      .map((p) => Product(
-                    id: p['IDProductos'].toString(),
-                    name: p['Nombre'],
-                    price: p['Precio'].toDouble(),
-                    stock: p['Stock'],
-                    categoryId: category.id,
-                  ))
-              );
-            }
-          });
-        }
-      }
-    } catch (e) {
-      print('Error al cargar productos: $e');
-    }
-  }
-
-
+  @override
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: BoxDecoration(
+        decoration: const BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
             colors: [
-              Colors.blue.shade50,
-              Colors.white,
+              Color(0xFF0A2463),
+              Color(0xFF3E92CC),
             ],
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView( // Envolver en SingleChildScrollView
+          child: SingleChildScrollView(
             child: Padding(
               padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
               child: Column(
@@ -218,26 +139,42 @@ class _ReportesPageState extends State<ReportesPage> {
                 children: [
                   _buildHeader(),
                   SizedBox(height: isSmallScreen ? 16 : 32),
-                  Card(
-                    elevation: 8,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(16),
+                  Container(
+                    decoration: BoxDecoration(
+                      borderRadius: BorderRadius.circular(20),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.2),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                          offset: Offset(0, 10),
+                        )
+                      ],
                     ),
-                    child: Padding(
-                      padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          _buildReportTypeSelector(),
-                          SizedBox(height: isSmallScreen ? 16 : 24),
-                          if (_reportType != null) ...[
-                            _buildFilterSection(),
-                            SizedBox(height: isSmallScreen ? 16 : 24),
-                            _buildDateSelector(),
-                            SizedBox(height: isSmallScreen ? 16 : 24),
-                            _buildGenerateButton(),
-                          ],
-                        ],
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(20),
+                      child: Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.95),
+                          backgroundBlendMode: BlendMode.overlay,
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              _buildReportTypeSelector(),
+                              SizedBox(height: isSmallScreen ? 16 : 24),
+                              if (_reportType != null) ...[
+                                _buildFilterSection(),
+                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                _buildDateSelector(),
+                                SizedBox(height: isSmallScreen ? 16 : 24),
+                                _buildGenerateButton(),
+                              ],
+                            ],
+                          ),
+                        ),
                       ),
                     ),
                   ),
@@ -255,9 +192,15 @@ class _ReportesPageState extends State<ReportesPage> {
       padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 8.0 : 16.0),
       child: Row(
         children: [
-          IconButton(
-            icon: const Icon(Icons.arrow_back),
-            onPressed: () => Navigator.pop(context),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: IconButton(
+              icon: Icon(Icons.arrow_back, color: Colors.white),
+              onPressed: () => Navigator.pop(context),
+            ),
           ),
           const SizedBox(width: 16),
           Expanded(
@@ -266,17 +209,23 @@ class _ReportesPageState extends State<ReportesPage> {
               children: [
                 Text(
                   'Generación de Reportes',
-                  style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.blue.shade900,
-                    fontSize: isSmallScreen ? 20 : 24,
+                  style: GoogleFonts.poppins(
+                    textStyle: TextStyle(
+                      color: Colors.white,
+                      fontSize: isSmallScreen ? 24 : 32,
+                      fontWeight: FontWeight.w600,
+                      letterSpacing: 0.5,
+                    ),
                   ),
                 ),
                 Text(
                   'Configura y genera reportes detallados',
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: Colors.grey.shade600,
-                    fontSize: isSmallScreen ? 14 : 16,
+                  style: GoogleFonts.poppins(
+                    textStyle: TextStyle(
+                      color: Colors.white.withOpacity(0.9),
+                      fontSize: isSmallScreen ? 14 : 16,
+                      fontWeight: FontWeight.w300,
+                    ),
                   ),
                 ),
               ],
@@ -289,39 +238,37 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Widget _buildReportTypeSelector() {
     return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: Colors.grey.shade50,
-      ),
       padding: EdgeInsets.all(isSmallScreen ? 12 : 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Tipo de Reporte',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.bold,
-              color: Colors.blue.shade900,
+            'Selecciona el tipo de reporte',
+            style: GoogleFonts.poppins(
+              color: Color(0xFF0A2463),
+              fontSize: 18,
+              fontWeight: FontWeight.w600,
             ),
           ),
           SizedBox(height: isSmallScreen ? 12 : 16),
-          // Siempre usar Row para mantener los botones en horizontal
-          Row(
+          GridView.count(
+            shrinkWrap: true,
+            crossAxisCount: isSmallScreen ? 1 : 2,
+            mainAxisSpacing: 16,
+            crossAxisSpacing: 16,
+            childAspectRatio: 3,
             children: [
-              Expanded(
-                child: _buildReportTypeButton(
-                  'Inventario',
-                  Icons.inventory_2_outlined,
-                  _reportType == 'Inventario',
-                ),
+              _buildReportTypeCard(
+                'Inventario',
+                Icons.inventory_2_outlined,
+                Color(0xFF3E92CC),
+                Color(0xFF0A2463),
               ),
-              SizedBox(width: isSmallScreen ? 8 : 16), // Reducimos el espacio en móvil
-              Expanded(
-                child: _buildReportTypeButton(
-                  'Ventas',
-                  Icons.point_of_sale_outlined,
-                  _reportType == 'Ventas',
-                ),
+              _buildReportTypeCard(
+                'Ventas',
+                Icons.analytics_outlined,
+                Color(0xFF3E92CC),
+                Color(0xFF0A2463),
               ),
             ],
           ),
@@ -330,60 +277,62 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  Widget _buildReportTypeButton(String type, IconData icon, bool isSelected) {
-    return InkWell(
-      onTap: () => setState(() {
-      if (_reportType != type) {
-        _reportType = type;
-        categories.clear(); // Limpiar categorías
-        categoryNameToId.clear(); // Limpiar mapeo de nombres
-        selectedCategoryIds.clear();
-        selectedProductIds.clear();
-        selectAllProducts = false;
+  Widget _buildReportTypeCard(String title, IconData icon, Color gradientStart, Color gradientEnd) {
+    final isSelected = _reportType == title;
 
-        // Recargar categorías y productos
-        _loadCategorias().then((_) {
-          _loadProductos();
-        });
-      }
-
-      }),
-      child: Container(
-        padding: EdgeInsets.symmetric(
-          vertical: isSmallScreen ? 12 : 16,
-          horizontal: isSmallScreen ? 8 : 16,
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      curve: Curves.easeInOut,
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        gradient: LinearGradient(
+          colors: isSelected
+              ? [gradientStart, gradientEnd]
+              : [Colors.white, Colors.white],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(12),
-          color: isSelected ? Colors.blue.shade100 : Colors.white,
-          border: Border.all(
-            color: isSelected ? Colors.blue.shade400 : Colors.grey.shade300,
-            width: 2,
+        boxShadow: [
+          if (isSelected)
+            BoxShadow(
+              color: gradientEnd.withOpacity(0.4),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            )
+        ],
+      ),
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(15),
+          onTap: () => setState(() {
+            _reportType = title;
+            selectedCategoryIds.clear();
+            selectedProductIds.clear();
+          }),
+          child: Padding(
+            padding: EdgeInsets.all(16),
+            child: Row(
+              children: [
+                Icon(icon, size: 28,
+                    color: isSelected ? Colors.white : Color(0xFF0A2463)),
+                SizedBox(width: 16),
+                Text(
+                  title,
+                  style: GoogleFonts.poppins(
+                    color: isSelected ? Colors.white : Color(0xFF0A2463),
+                    fontSize: 16,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: isSmallScreen ? 24 : 32,
-              color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
-            ),
-            SizedBox(height: isSmallScreen ? 4 : 8),
-            Text(
-              type,
-              style: TextStyle(
-                color: isSelected ? Colors.blue.shade700 : Colors.grey.shade600,
-                fontWeight: FontWeight.bold,
-                fontSize: isSmallScreen ? 12 : 14,
-              ),
-              textAlign: TextAlign.center,
-            ),
-          ],
         ),
       ),
     );
   }
+
 
   Widget _buildFilterSection() {
     return Container(
@@ -397,7 +346,11 @@ class _ReportesPageState extends State<ReportesPage> {
         children: [
           Text(
             'Filtros',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme
+                .of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.blue.shade900,
             ),
@@ -411,13 +364,12 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-
   Widget _buildCategorySelector() {
-    // Filtrar categorías basado en el texto de búsqueda
     List<Category> filteredCategories = categories
-        .where((category) => category.name
-        .toLowerCase()
-        .contains(categorySearchController.text.toLowerCase()))
+        .where((category) =>
+        category.name
+            .toLowerCase()
+            .contains(categorySearchController.text.toLowerCase()))
         .toList();
 
     return Column(
@@ -444,13 +396,10 @@ class _ReportesPageState extends State<ReportesPage> {
               onPressed: () {
                 setState(() {
                   if (selectedCategoryIds.length == categories.length) {
-                    // Si todas están seleccionadas, deseleccionar todo
                     selectedCategoryIds.clear();
                   } else {
-                    // Seleccionar todas las categorías
                     selectedCategoryIds = categories.map((c) => c.id).toSet();
                   }
-                  // Limpiar productos seleccionados cuando cambian las categorías
                   selectedProductIds.clear();
                 });
               },
@@ -506,7 +455,6 @@ class _ReportesPageState extends State<ReportesPage> {
                     } else {
                       selectedCategoryIds.remove(category.id);
                     }
-                    // Limpiar productos seleccionados cuando cambian las categorías
                     selectedProductIds.clear();
                   });
                 },
@@ -517,9 +465,7 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-
   Widget _buildProductSelector() {
-    // Obtener productos de las categorías seleccionadas o todas si no hay selección
     List<Product> selectedCategoryProducts = [];
 
     if (selectedCategoryIds.isNotEmpty) {
@@ -544,17 +490,16 @@ class _ReportesPageState extends State<ReportesPage> {
             const Spacer(),
             TextButton.icon(
               icon: Icon(
-                selectAllProducts ? Icons.check_box : Icons.check_box_outline_blank,
+                selectAllProducts ? Icons.check_box : Icons
+                    .check_box_outline_blank,
                 size: 20,
               ),
               label: const Text('Seleccionar todos'),
               onPressed: () {
                 setState(() {
                   if (selectAllProducts) {
-                    // Si estaba todo seleccionado, deseleccionar todo
                     selectedProductIds.clear();
                   } else {
-                    // Seleccionar solo los productos de las categorías filtradas
                     selectedProductIds = selectedCategoryProducts
                         .map((p) => p.id)
                         .toSet();
@@ -594,9 +539,10 @@ class _ReportesPageState extends State<ReportesPage> {
             spacing: 8,
             runSpacing: 8,
             children: selectedCategoryProducts
-                .where((product) => product.name
-                .toLowerCase()
-                .contains(searchController.text.toLowerCase()))
+                .where((product) =>
+                product.name
+                    .toLowerCase()
+                    .contains(searchController.text.toLowerCase()))
                 .map((product) {
               return FilterChip(
                 label: Text(product.name),
@@ -608,7 +554,6 @@ class _ReportesPageState extends State<ReportesPage> {
                     } else {
                       selectedProductIds.remove(product.id);
                     }
-                    // Actualizar el estado de "Seleccionar todos" basado en si todos los productos filtrados están seleccionados
                     selectAllProducts = selectedProductIds.containsAll(
                         selectedCategoryProducts.map((p) => p.id)
                     );
@@ -620,7 +565,6 @@ class _ReportesPageState extends State<ReportesPage> {
       ],
     );
   }
-
 
   Widget _buildDateSelector() {
     return Container(
@@ -634,7 +578,11 @@ class _ReportesPageState extends State<ReportesPage> {
         children: [
           Text(
             'Rango de Fechas',
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
+            style: Theme
+                .of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.blue.shade900,
             ),
@@ -667,7 +615,9 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Widget _buildDateButton(bool isStartDate) {
     final date = isStartDate ? _startDate : _endDate;
-    final formattedDate = date != null ? DateFormat('dd/MM/yyyy').format(date) : 'Seleccionar';
+    final formattedDate = date != null
+        ? DateFormat('dd/MM/yyyy').format(date)
+        : 'Seleccionar';
 
     return InkWell(
       onTap: () => _selectDate(context, isStartDate),
@@ -713,30 +663,47 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 
   Widget _buildGenerateButton() {
-    bool canGenerate = _startDate != null &&
-        _endDate != null &&
-        (selectedCategoryIds.isEmpty || !selectedProductIds.isEmpty);
+    bool canGenerate = _startDate != null && _endDate != null;
 
-    return Container(
-      width: double.infinity,
-      height: isSmallScreen ? 48 : 56,
+    return AnimatedContainer(
+      duration: Duration(milliseconds: 300),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(15),
+        boxShadow: [
+          if (canGenerate)
+            BoxShadow(
+              color: Color(0xFF0A2463).withOpacity(0.4),
+              blurRadius: 10,
+              offset: Offset(0, 4),
+            )
+        ],
+      ),
       child: ElevatedButton(
         onPressed: canGenerate ? _generateAndDownloadPDF : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue.shade700,
+          backgroundColor: canGenerate ? Color(0xFF3E92CC) : Colors.grey,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(15),
           ),
+          padding: EdgeInsets.symmetric(vertical: 18),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.picture_as_pdf, size: isSmallScreen ? 20 : 24, color: Colors.white60,),
-            SizedBox(width: isSmallScreen ? 8 : 12),
+            AnimatedSwitcher(
+              duration: Duration(milliseconds: 300),
+              child: canGenerate
+                  ? Icon(Icons.file_download, color: Colors.white)
+                  : Icon(Icons.block, color: Colors.white),
+            ),
+            SizedBox(width: 12),
             Text(
-              'Generar Reporte',
-              style: TextStyle(fontSize: isSmallScreen ? 14 : 16,
-              color: Colors.white,),
+              'GENERAR REPORTE',
+              style: GoogleFonts.poppins(
+                color: Colors.white,
+                fontWeight: FontWeight.w600,
+                letterSpacing: 1.2,
+              ),
             ),
           ],
         ),
@@ -746,20 +713,21 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Future<void> _selectDate(BuildContext context, bool isStartDate) async {
     final DateTime? picked = await showDatePicker(
-        context: context,
-        initialDate: isStartDate ? _startDate ?? DateTime.now() : _endDate ?? DateTime.now(),
-    firstDate: DateTime(2000),
-    lastDate: DateTime.now(),
-    builder: (context, child) {
-    return Theme(
-    data: Theme.of(context).copyWith(
-    colorScheme: ColorScheme.light(
-    primary: Colors.blue.shade700,
-    ),
-    ),
-      child: child!,
-    );
-    },
+      context: context,
+      initialDate: isStartDate ? _startDate ?? DateTime.now() : _endDate ??
+          DateTime.now(),
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: ColorScheme.light(
+              primary: Colors.blue.shade700,
+            ),
+          ),
+          child: child!,
+        );
+      },
     );
 
     if (picked != null) {
@@ -778,257 +746,220 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Future<void> _generateAndDownloadPDF() async {
     try {
+      // Create PDF document
       final pdf = pw.Document();
 
-      final salesData = await fetchSales();
-      final mappedSalesData = _mapSalesToProducts(salesData);
+      // Get selected products
+      final selectedProducts = categories
+          .where((category) => selectedCategoryIds.contains(category.id))
+          .expand((category) => category.products)
+          .where((product) => selectedProductIds.contains(product.id))
+          .toList();
 
-      // Obtener productos seleccionados
-      final List<Product> selectedProducts = [];
-      if (selectedCategoryIds.isNotEmpty) {
-        for (var categoryId in selectedCategoryIds) {
-          final category = categories.firstWhere((c) => c.id == categoryId);
-          selectedProducts.addAll(
-              category.products.where((p) => selectedProductIds.isEmpty || selectedProductIds.contains(p.id)));
-        }
-      } else {
-        for (var category in categories) {
-          selectedProducts.addAll(category.products);
-        }
-      }
-
-      // Calcular número de páginas para la tabla de productos
-      final int itemsPerPage = 20;
-      final int totalPages = (selectedProducts.length / itemsPerPage).ceil();
-
-      // Primera página con información general y tabla de productos
+      // Add content to PDF
       pdf.addPage(
-        pw.Page(
+        pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          build: (pw.Context context) {
-            final start = 0;
-            final end = min(itemsPerPage, selectedProducts.length);
-            final pageProducts = selectedProducts.sublist(start, end);
-
-            return pw.Column(
-              crossAxisAlignment: pw.CrossAxisAlignment.start,
-              children: [
-                pw.Header(
-                  level: 0,
-                  child: pw.Row(
-                    mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
-                    children: [
-                      pw.Text(
-                        _reportType == 'Ventas' ? 'Reporte de Ventas' : 'Reporte de Inventario',
-                        style: pw.TextStyle(
-                          fontSize: 24,
-                          fontWeight: pw.FontWeight.bold,
-                        ),
-                      ),
-                      pw.Text(
-                        DateFormat('dd/MM/yyyy').format(DateTime.now()),
-                        style: const pw.TextStyle(
-                          fontSize: 14,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Text(
-                  'Productos (Página 1 de $totalPages)',
-                  style: pw.TextStyle(
-                    fontSize: 14,
-                    fontWeight: pw.FontWeight.bold,
-                  ),
-                ),
-                pw.SizedBox(height: 10),
-                pw.Table(
-                  border: pw.TableBorder.all(
-                    color: PdfColors.grey400,
-                    width: 0.5,
-                  ),
-                  children: [
-                    // Encabezados
-                    pw.TableRow(
-                      decoration: const pw.BoxDecoration(
-                        color: PdfColors.grey200,
-                      ),
-                      children: _reportType == 'Ventas'
-                          ? [
-                        _buildPDFTableHeader('Producto'),
-                        _buildPDFTableHeader('Categoría'),
-                        _buildPDFTableHeader('Precio Unitario'),
-                        _buildPDFTableHeader('Cantidad Vendida'),
-                        _buildPDFTableHeader('Subtotal'),
-                      ]
-                          : [
-                        _buildPDFTableHeader('Producto'),
-                        _buildPDFTableHeader('Categoría'),
-                        _buildPDFTableHeader('Precio Unitario'),
-                        _buildPDFTableHeader('Stock'),
-                      ],
-                    ),
-                    // Datos para esta página
-                    ...pageProducts.map((product) {
-                      final category = categories.firstWhere(
-                            (c) => c.id == product.categoryId,
-                      );
-
-                      if (_reportType == 'Ventas') {
-                        return pw.TableRow(
-                          children: [
-                            _buildPDFTableCell(product.name),
-                            _buildPDFTableCell(category.name),
-                            _buildPDFTableCell('\$${product.price.toStringAsFixed(2)}'),
-                            _buildPDFTableCell(mappedSalesData[product.id]?['Stock']?.toString() ?? '0'),
-                            _buildPDFTableCell('\$${(mappedSalesData[product.id]?['PrecioSubtotal'] ?? 0.0).toStringAsFixed(2)}'),
-                          ],
-                        );
-                      }
-                      else {
-                      return pw.TableRow(
-                      children: [
-                      _buildPDFTableCell(product.name),
-                      _buildPDFTableCell(category.name),
-                      _buildPDFTableCell('\$${product.price.toStringAsFixed(2)}'),
-                      _buildPDFTableCell(product.stock.toString()),
-                      ],
-                      );
-                      }
-                    }).toList(),
-                  ],
-                ),
-              ],
-            );
-          },
+          build: (context) =>
+          [
+            _buildPDFHeader(),
+            pw.SizedBox(height: 20),
+            _buildPDFContent(selectedProducts),
+          ],
         ),
       );
 
-      // Guardar o descargar el PDF
+      final String fileName = '${_reportType
+          ?.toLowerCase()}_report_${DateFormat('yyyyMMdd').format(
+          DateTime.now())}.pdf';
+
       if (kIsWeb) {
         final bytes = await pdf.save();
         final blob = html.Blob([bytes], 'application/pdf');
         final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement(href: url)
-          ..setAttribute('download', _reportType == 'Ventas' ? 'reporte_ventas.pdf' : 'reporte_inventario.pdf')
-          ..click();
+        final anchor = html.AnchorElement()
+          ..href = url
+          ..style.display = 'none'
+          ..download = fileName;
+        html.document.body?.children.add(anchor);
+        anchor.click();
+        html.document.body?.children.remove(anchor);
         html.Url.revokeObjectUrl(url);
-      } else {
-        final directory = await getApplicationDocumentsDirectory();
-        final file = File('${directory.path}/${_reportType == 'Ventas' ? 'reporte_ventas.pdf' : 'reporte_inventario.pdf'}');
-        await file.writeAsBytes(await pdf.save());
-      }
+      }else {
+    // Handle mobile download
+    final output = await getApplicationDocumentsDirectory();
+    final file = File('${output.path}/$fileName');
+    await file.writeAsBytes(await pdf.save());
+
+    // Show success dialog
+    if (!mounted) return;
+    _showSuccessDialog(context, file.path);
+    }
     } catch (e) {
-      print('Error al generar el PDF: $e');
+    // Show error dialog
+    if (!mounted) return;
+    _showErrorDialog(context, e.toString());
     }
   }
 
-// Llamar a la API para obtener los datos de ventas
-  Future<List<dynamic>> fetchSales() async {
-    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-    final String salesEndpoint = '/ventas';
-
-    try {
-      final response = await http.get(Uri.parse('$baseUrl$salesEndpoint'));
-
-      if (response.statusCode == 200) {
-        final jsonData = json.decode(response.body);
-        return jsonData['ventas'];
-      } else {
-        throw Exception('Error al obtener ventas: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error en fetchSales: $e');
-      throw Exception('Error al conectar con la API.');
-    }
-  }
-
-// Asociar las ventas con los productos
-  Map<String, Map<String, dynamic>> _mapSalesToProducts(List<dynamic> salesData) {
-    final Map<String, Map<String, dynamic>> productSales = {};
-
-    for (var sale in salesData) {
-      // Convertir la fecha de la venta a DateTime
-      final saleDate = DateTime.parse(sale['Fecha']);
-
-      // Verificar si la fecha está dentro del rango seleccionado
-      if (saleDate.isAfter(_startDate!) && saleDate.isBefore(_endDate!.add(Duration(days: 1)))) {
-        final productId = sale['IDProducto'].toString();
-        if (productSales.containsKey(productId)) {
-          productSales[productId]!['Stock'] += sale['Stock'] ?? 0;
-          productSales[productId]!['PrecioSubtotal'] += sale['PrecioSubtotal'] ?? 0.0;
-        } else {
-          productSales[productId] = {
-            'Stock': sale['Stock'] ?? 0,
-            'PrecioSubtotal': sale['PrecioSubtotal'] ?? 0.0,
-          };
-        }
-      }
-    }
-    return productSales;
-  }
-
-  pw.Widget _buildPDFTableHeader(String text) {
+  pw.Widget _buildPDFHeader() {
     return pw.Container(
-      padding: const pw.EdgeInsets.all(4),
-      alignment: pw.Alignment.centerLeft,
-      child: pw.Text(
-        text,
-        style: pw.TextStyle(
-          fontWeight: pw.FontWeight.bold,
-        ),
-      ),
-    );
-  }
-
-  pw.Widget _buildPDFTableCell(String text) {
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(4),
-      alignment: pw.Alignment.centerLeft,
-      child: pw.Text(text),
-    );
-  }
-
-  pw.Widget _buildPDFSummary(List<Product> products) {
-    double totalValue = products.fold(
-      0,
-          (sum, product) => sum + (product.price * product.stock),
-    );
-
-    return pw.Container(
-      padding: const pw.EdgeInsets.all(10),
       decoration: pw.BoxDecoration(
-        color: PdfColors.grey200,
-        borderRadius: const pw.BorderRadius.all(pw.Radius.circular(8)),
+        color: PdfColor.fromInt(0xFF0A2463),
+        borderRadius: pw.BorderRadius.circular(8),
       ),
+      padding: pw.EdgeInsets.all(20),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
           pw.Text(
-            'Resumen:',
+            'Reporte de $_reportType',
             style: pw.TextStyle(
-              fontSize: 14,
+              color: PdfColors.white,
+              fontSize: 24,
               fontWeight: pw.FontWeight.bold,
             ),
           ),
-          pw.SizedBox(height: 10),
-          pw.Text('Total de productos: ${products.length}'),
-          if (_reportType == 'Inventario') ...[
-            pw.Text(
-              'Valor total del inventario: \$${totalValue.toStringAsFixed(2)}',
+          pw.SizedBox(height: 8),
+          pw.Text(
+            'Periodo: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
+            style: pw.TextStyle(
+              color: PdfColors.white,
+              fontSize: 12,
             ),
-            pw.Text(
-              'Stock total: ${products.fold(0, (sum, product) => sum + product.stock)}',
-            ),
-          ],
-          if (_reportType == 'Ventas') ...[
-            pw.Text('Total de ventas: \$0.00'), // Aquí deberías poner el total real
-            pw.Text('Cantidad total vendida: 0'), // Aquí deberías poner la cantidad real
-          ],
+          ),
         ],
       ),
     );
   }
 
+  pw.Widget _buildPDFContent(List<Product> products) {
+    if (_reportType == 'Inventario') {
+      return _buildInventoryTable(products);
+    } else {
+      return _buildSalesTable(products);
+    }
+  }
+  pw.Widget _buildSalesTable(List<Product> products) {
+    return pw.Table(
+      border: pw.TableBorder.all(),
+      children: [
+        pw.TableRow(
+          decoration: pw.BoxDecoration(color: PdfColors.grey300),
+          children: [
+            _buildTableHeader('Producto'),
+            _buildTableHeader('Categoría'),
+            _buildTableHeader('Precio Unitario'),
+            _buildTableHeader('Cantidad Vendida'),
+            _buildTableHeader('Total'),
+          ],
+        ),
+        ...products.map((product) {
+          final category = categories.firstWhere(
+                (cat) => cat.id == product.categoryId,
+          );
+          // Mock sales data - replace with actual sales data
+          final quantitySold = Random().nextInt(50) + 1;
+          final total = product.price * quantitySold;
+
+          return pw.TableRow(
+            children: [
+              _buildTableCell(product.name),
+              _buildTableCell(category.name),
+              _buildTableCell('\$${product.price.toStringAsFixed(2)}'),
+              _buildTableCell(quantitySold.toString()),
+              _buildTableCell('\$${total.toStringAsFixed(2)}'),
+            ],
+          );
+        }).toList(),
+      ],
+    );
+  }
+
+  pw.Widget _buildInventoryTable(List<Product> products) {
+    return pw.TableHelper.fromTextArray(
+
+      headerDecoration: pw.BoxDecoration(
+        color: PdfColor.fromInt(0xFF3E92CC),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      headerStyle: pw.TextStyle(
+        color: PdfColors.white,
+        fontWeight: pw.FontWeight.bold,
+      ),
+      rowDecoration: pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(
+            color: PdfColor.fromInt(0xFF0A2463),
+            width: 0.5,
+          ),
+        ),
+      ),
+      headers: ['Producto', 'Categoría', 'Stock', 'Precio'],
+      data: products.map((product) {
+        final category = categories.firstWhere(
+              (cat) => cat.id == product.categoryId,
+        );
+        return [
+          product.name,
+          category.name,
+          product.stock.toString(),
+          '\$${product.price.toStringAsFixed(2)}',
+        ];
+      }).toList(),
+    );
+  }
 }
+
+  pw.Widget _buildTableHeader(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(
+        text,
+        style: pw.TextStyle(fontWeight: pw.FontWeight.bold),
+        textAlign: pw.TextAlign.center,
+      ),
+    );
+  }
+
+  pw.Widget _buildTableCell(String text) {
+    return pw.Padding(
+      padding: const pw.EdgeInsets.all(8),
+      child: pw.Text(text, textAlign: pw.TextAlign.center),
+    );
+  }
+
+  void _showSuccessDialog(BuildContext context, String filePath) {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: Text('Reporte Generado',
+                style: TextStyle(color: Colors.blue.shade900)),
+            content: Text('El reporte ha sido guardado en:\n$filePath'),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+    );
+  }
+
+  void _showErrorDialog(BuildContext context, String error) {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          AlertDialog(
+            title: Text('Error', style: TextStyle(color: Colors.red.shade900)),
+            content: Text('No se pudo generar el reporte:\n$error'),
+            actions: [
+              TextButton(
+                child: const Text('OK'),
+                onPressed: () => Navigator.pop(context),
+              ),
+            ],
+          ),
+    );
+  }

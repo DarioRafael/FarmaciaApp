@@ -90,6 +90,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'description': 'Control financiero',
         'gradient': [secondaryBlue, primaryBlue]
       },
+      {
+        'title': 'Reportes',
+        'icon': Icons.analytics,
+        'page': ReportesPage(),
+        'color': secondaryBlue,
+        'description': 'Generar reportes',
+        'gradient': [secondaryBlue, primaryBlue]
+      },
     ];
 
     if (userRole == 'propietario') {
@@ -151,68 +159,34 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
             physics: const BouncingScrollPhysics(),
             slivers: [
               SliverAppBar(
-                expandedHeight: smallScreen ? 140.0 : 220.0,
-                floating: false,
                 pinned: true,
-                stretch: true,
-                elevation: 0,
+                expandedHeight: 0,
                 backgroundColor: primaryBlue,
                 flexibleSpace: FlexibleSpaceBar(
-                  title: Text(
-                    'Farmacia ${_capitalizeRole(userRole ?? "")}',
-                    style: TextStyle(
-                      color: white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: smallScreen ? 18.0 : 22.0,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                  titlePadding: EdgeInsets.only(
-                    left: padding * 2,
-                    bottom: padding * 1.5,
-                    right: padding * 2,
-                  ),
-                  background: Container(
-                    decoration: BoxDecoration(
-                      gradient: LinearGradient(
-                        begin: Alignment.topRight,
-                        end: Alignment.bottomLeft,
-                        colors: [
-                          primaryBlue,
-                          secondaryBlue,
-                          accentBlue,
-                        ],
-                      ),
-                    ),
-                    child: Stack(
-                      children: [
-                        Positioned(
-                          right: -50,
-                          top: -50,
-                          child: Container(
-                            width: 200,
-                            height: 200,
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: white.withOpacity(0.1),
-                            ),
-                          ),
+                  titlePadding: EdgeInsets.only(left: 16.0, bottom: 12.0),
+                  title: Row(
+                    children: [
+                      Text(
+                        'Farmacia ${_capitalizeRole(userRole ?? "")}',
+                        style: TextStyle(
+                          color: white,
+                          fontSize: smallScreen ? 18.0 : 22.0,
+                          fontWeight: FontWeight.w600,
                         ),
-                      ],
-                    ),
+                      ),
+                      Spacer(),
+                      IconButton(
+                        icon: Icon(Icons.logout_rounded, color: white),
+                        onPressed: () async {
+                          final shouldLogout = await _showLogoutConfirmationDialog(context);
+                          if (shouldLogout) {
+                            await _logout(context);
+                          }
+                        },
+                      ),
+                    ],
                   ),
                 ),
-                actions: [
-                  IconButton(
-                    icon: const Icon(Icons.logout_rounded, color: white),
-                    onPressed: () async {
-                      final shouldLogout = await _showLogoutConfirmationDialog(context);
-                      if (shouldLogout) {
-                        await _logout(context);
-                      }
-                    },
-                  ),
-                ],
               ),
               SliverPadding(
                 padding: EdgeInsets.all(padding),

@@ -179,6 +179,7 @@ class _InventarioPageState extends State<InventarioPage> {
 
   List<Map<String, dynamic>> _filteredProducts = [];
   List<List<Map<String, dynamic>>> _allInventories = [];
+  List<List<Map<String, dynamic>>> _filteredInventories = [];
 
 
   final Color primaryBlue = Color(0xFF1A237E); // Dark blue
@@ -207,6 +208,7 @@ class _InventarioPageState extends State<InventarioPage> {
         };
       }).toList();
     });
+    _filteredInventories = List.from(_allInventories);
   }
 //ss
   void _loadCategorias() {
@@ -222,20 +224,33 @@ class _InventarioPageState extends State<InventarioPage> {
 
   void _filterProducts() {
     final query = _searchController.text.toLowerCase();
+
+    // Función de filtrado que se puede reutilizar
+    bool filterCondition(Map<String, dynamic> product) {
+      final matchesQuery =
+          product['nombre'].toString().toLowerCase().contains(query) ||
+              product['categoria'].toString().toLowerCase().contains(query) ||
+              product['precio'].toString().contains(query) ||
+              product['stock'].toString().contains(query);
+
+      final matchesCategory = _selectedFilter == 'Todos' ||
+          product['categoria'] == _selectedFilter;
+
+      return matchesQuery && matchesCategory;
+    }
+
     setState(() {
-      _filteredProducts = _productos.where((product) {
-        final matchesQuery =
-            product['nombre'].toString().toLowerCase().contains(query) ||
-                product['categoria'].toString().toLowerCase().contains(query) ||
-                product['precio'].toString().contains(query) ||
-                product['stock'].toString().contains(query);
+      // Filtrar productos locales
+      _filteredProducts = _productos.where(filterCondition).toList();
 
-        final matchesCategory = _selectedFilter == 'Todos' ||
-            product['categoria'] == _selectedFilter;
-
-        return matchesQuery && matchesCategory;
+      // Filtrar inventarios de sucursales
+      _filteredInventories = _allInventories.map((inventory) {
+        return inventory.where(filterCondition).toList();
       }).toList();
+
+      // Aplicar ordenamiento
       _sortProducts();
+      _sortAllInventories();
     });
   }
   void _sortProducts() {
@@ -246,6 +261,18 @@ class _InventarioPageState extends State<InventarioPage> {
       }
       return a['categoria'].compareTo(b['categoria']);
     });
+  }
+
+  void _sortAllInventories() {
+    for (var inventory in _filteredInventories) {
+      inventory.sort((a, b) {
+        int nameComparison = a['nombre'].compareTo(b['nombre']);
+        if (nameComparison != 0) {
+          return nameComparison;
+        }
+        return a['categoria'].compareTo(b['categoria']);
+      });
+    }
   }
 
   Map<String, List<Map<String, dynamic>>> _groupProductsByCategory() {
@@ -500,11 +527,10 @@ class _InventarioPageState extends State<InventarioPage> {
         if (i == 0) {
           inventoryData = _filteredProducts;
         } else {
-          // Asegurarse de que haya suficientes inventarios en _allInventories
-          if (i - 1 < _allInventories.length) {
-            inventoryData = _allInventories[i - 1];
+          if (i - 1 < _filteredInventories.length) {
+            inventoryData = _filteredInventories[i - 1];
           } else {
-            inventoryData = []; // O manejar el caso de error como prefieras
+            inventoryData = [];
           }
         }
 
@@ -520,7 +546,6 @@ class _InventarioPageState extends State<InventarioPage> {
       }
     }
 
-    // Asegurarse de que siempre haya al menos una vista
     if (views.isEmpty) {
       views.add(
         Center(
