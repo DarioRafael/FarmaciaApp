@@ -53,7 +53,7 @@ class _InventarioPageState extends State<InventarioPage> {
     super.initState();
     _searchController.addListener(_filterProducts);
     _loadProductsFromApi();
-  }//
+  }//Probar de nuevo
 
   Future<void> _loadProductsFromApi() async {
     setState(() {});
