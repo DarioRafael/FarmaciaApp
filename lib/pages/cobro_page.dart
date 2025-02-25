@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:responsive_framework/responsive_framework.dart';
-import 'package:flutter_spinbox/flutter_spinbox.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
@@ -15,7 +14,7 @@ class CobroPage extends StatefulWidget {
 class ResponsiveScalingWidget extends StatelessWidget {
   final Widget child;
 
-  const ResponsiveScalingWidget({required this.child});
+  const ResponsiveScalingWidget({super.key, required this.child});
 
   @override
   Widget build(BuildContext context) {
@@ -51,19 +50,19 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
 
   // Esquema de colores refinado para blanco con azul elegante
   final ColorScheme _colorScheme = ColorScheme.fromSeed(
-    seedColor: Color(0xFF2196F3),
+    seedColor: const Color(0xFF2196F3),
     brightness: Brightness.light,
-    primary: Color(0xFF1976D2),
-    primaryContainer: Color(0xFFBBDEFB),
-    secondary: Color(0xFF42A5F5),
-    secondaryContainer: Color(0xFFE3F2FD),
+    primary: const Color(0xFF1976D2),
+    primaryContainer: const Color(0xFFBBDEFB),
+    secondary: const Color(0xFF42A5F5),
+    secondaryContainer: const Color(0xFFE3F2FD),
     surface: Colors.white,
-    background: Color(0xFFF5F9FF),
-    error: Color(0xFFB00020),
+    background: const Color(0xFFF5F9FF),
+    error: const Color(0xFFB00020),
     onPrimary: Colors.white,
     onSecondary: Colors.white,
-    onSurface: Color(0xFF263238),
-    onBackground: Color(0xFF263238),
+    onSurface: const Color(0xFF263238),
+    onBackground: const Color(0xFF263238),
     onError: Colors.white,
   );
 
@@ -106,6 +105,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         // Transform API data and sort alphabetically
         _productos = jsonData.map((medicamento) {
           return {
+            'id': medicamento['ID'], // Add this line to include the ID
             'nombre': medicamento['NombreMedico'],
             'nombreGenerico': medicamento['NombreGenerico'],
             'categoria': _determinarCategoria(medicamento['FormaFarmaceutica']),
@@ -149,11 +149,11 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
   Color _obtenerColorPorCategoria(String formaFarmaceutica) {
     final categoria = _determinarCategoria(formaFarmaceutica);
     if (categoria == 'Tabletas') {
-      return Color(0xFFE3F2FD); // Light blue
+      return const Color(0xFFE3F2FD); // Light blue
     } else if (categoria == 'Bebibles') {
-      return Color(0xFFE8F5E9); // Light green
+      return const Color(0xFFE8F5E9); // Light green
     } else {
-      return Color(0xFFFFF3E0); // Light orange
+      return const Color(0xFFFFF3E0); // Light orange
     }
   }
 
@@ -201,13 +201,13 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
       scaffoldMessenger.showSnackBar(
         SnackBar(
           content: Text(mensaje),
-          duration: Duration(seconds: 2),
+          duration: const Duration(seconds: 2),
           backgroundColor: isError ? _colorScheme.error : _colorScheme.primary,
           behavior: SnackBarBehavior.floating,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(10),
           ),
-          margin: EdgeInsets.all(16),
+          margin: const EdgeInsets.all(16),
         ),
       );
     });
@@ -322,7 +322,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
               height: MediaQuery.of(context).size.height * 0.85,
               decoration: BoxDecoration(
                 color: Colors.white,
-                borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+                borderRadius: const BorderRadius.vertical(top: Radius.circular(30)),
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.15),
@@ -335,7 +335,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                 children: [
                   // Handle para arrastrar
                   Container(
-                    margin: EdgeInsets.only(top: 12),
+                    margin: const EdgeInsets.only(top: 12),
                     width: 60,
                     height: 5,
                     decoration: BoxDecoration(
@@ -343,7 +343,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                       borderRadius: BorderRadius.circular(2.5),
                     ),
                   ),
-                  SizedBox(height: 20),
+                  const SizedBox(height: 20),
                   // Encabezado del carrito
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 24.0),
@@ -352,7 +352,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                         Icon(Icons.shopping_cart_outlined,
                             color: _colorScheme.primary,
                             size: 28),
-                        SizedBox(width: 12),
+                        const SizedBox(width: 12),
                         Text(
                           'Carrito de Compras',
                           style: GoogleFonts.montserrat(
@@ -361,9 +361,9 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                             color: _colorScheme.primary,
                           ),
                         ),
-                        Spacer(),
+                        const Spacer(),
                         Container(
-                          padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: _colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(12),
@@ -381,13 +381,13 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                     ),
                   ),
 
-                  Divider(height: 32, thickness: 1, indent: 24, endIndent: 24),
+                  const Divider(height: 32, thickness: 1, indent: 24, endIndent: 24),
 
                   // Lista de productos en el carrito
                   Expanded(
                     child: hayProductos
                         ? ListView(
-                      padding: EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+                      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
                       children: _carritos[_carritoActivo].entries.map((entry) {
                         final producto = _productos.firstWhere(
                                 (producto) => producto['nombre'] == entry.key);
@@ -403,7 +403,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                               width: 1,
                             ),
                           ),
-                          margin: EdgeInsets.only(bottom: 16),
+                          margin: const EdgeInsets.only(bottom: 16),
                           child: Padding(
                             padding: const EdgeInsets.all(16),
                             child: Row(
@@ -425,7 +425,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                     size: 30,
                                   ),
                                 ),
-                                SizedBox(width: 16),
+                                const SizedBox(width: 16),
 
                                 // Información del producto
                                 Expanded(
@@ -440,7 +440,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                           color: _colorScheme.onSurface,
                                         ),
                                       ),
-                                      SizedBox(height: 4),
+                                      const SizedBox(height: 4),
                                       Row(
                                         children: [
                                           Text(
@@ -458,7 +458,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                               color: Colors.grey[600],
                                             ),
                                           ),
-                                          Spacer(),
+                                          const Spacer(),
                                           Text(
                                             '\$${(precio * entry.value).toStringAsFixed(2)}',
                                             style: GoogleFonts.montserrat(
@@ -475,7 +475,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
 
                                 // Controles de cantidad
                                 Container(
-                                  margin: EdgeInsets.only(left: 8),
+                                  margin: const EdgeInsets.only(left: 8),
                                   decoration: BoxDecoration(
                                     color: _colorScheme.surface,
                                     borderRadius: BorderRadius.circular(8),
@@ -496,7 +496,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                         })
                                             : null,
                                         padding: EdgeInsets.zero,
-                                        constraints: BoxConstraints(
+                                        constraints: const BoxConstraints(
                                           minWidth: 36,
                                           minHeight: 36,
                                         ),
@@ -522,7 +522,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                         })
                                             : null,
                                         padding: EdgeInsets.zero,
-                                        constraints: BoxConstraints(
+                                        constraints: const BoxConstraints(
                                           minWidth: 36,
                                           minHeight: 36,
                                         ),
@@ -555,7 +555,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                             size: 80,
                             color: Colors.grey.withOpacity(0.5),
                           ),
-                          SizedBox(height: 16),
+                          const SizedBox(height: 16),
                           Text(
                             'El carrito está vacío',
                             style: GoogleFonts.montserrat(
@@ -563,7 +563,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                               color: Colors.grey,
                             ),
                           ),
-                          SizedBox(height: 8),
+                          const SizedBox(height: 8),
                           Text(
                             'Agrega productos para comenzar',
                             style: GoogleFonts.montserrat(
@@ -578,15 +578,15 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
 
                   // Resumen y botones de acción
                   Container(
-                    padding: EdgeInsets.all(24),
+                    padding: const EdgeInsets.all(24),
                     decoration: BoxDecoration(
                       color: Colors.white,
-                      borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+                      borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
                       boxShadow: [
                         BoxShadow(
                           color: Colors.black.withOpacity(0.05),
                           blurRadius: 10,
-                          offset: Offset(0, -4),
+                          offset: const Offset(0, -4),
                         ),
                       ],
                     ),
@@ -614,7 +614,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                             ),
                           ],
                         ),
-                        SizedBox(height: 20),
+                        const SizedBox(height: 20),
 
                         // Botones de acción
                         Row(
@@ -634,7 +634,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                     borderRadius: BorderRadius.circular(15),
                                   ),
                                   side: BorderSide(color: _colorScheme.primary),
-                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
                                 ),
                                 child: Text(
                                   'Vaciar',
@@ -646,7 +646,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                 ),
                               ),
                             ),
-                            SizedBox(width: 16),
+                            const SizedBox(width: 16),
 
                             // Botón para confirmar venta
                             Expanded(
@@ -659,7 +659,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                   shape: RoundedRectangleBorder(
                                     borderRadius: BorderRadius.circular(15),
                                   ),
-                                  padding: EdgeInsets.symmetric(vertical: 16),
+                                  padding: const EdgeInsets.symmetric(vertical: 16),
                                   elevation: 0,
                                 ),
                                 child: Text(
@@ -691,52 +691,38 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
       return;
     }
 
-    // Mostrar diálogo de carga con estilo mejorado
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (BuildContext context) {
         return Dialog(
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(20),
-          ),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
           elevation: 0,
           backgroundColor: Colors.transparent,
           child: Container(
-            padding: EdgeInsets.all(24),
+            padding: const EdgeInsets.all(20),
             decoration: BoxDecoration(
               color: Colors.white,
               shape: BoxShape.rectangle,
               borderRadius: BorderRadius.circular(20),
-              boxShadow: [
+              boxShadow: const [
                 BoxShadow(
                   color: Colors.black26,
                   blurRadius: 10.0,
-                  offset: const Offset(0.0, 10.0),
+                  offset: Offset(0.0, 10.0),
                 ),
               ],
             ),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                CircularProgressIndicator(
-                  valueColor: AlwaysStoppedAnimation<Color>(_colorScheme.primary),
-                  strokeWidth: 3,
-                ),
-                SizedBox(height: 24),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
                 Text(
                   'Procesando venta...',
                   style: GoogleFonts.montserrat(
-                    fontSize: 18,
+                    fontSize: 16,
                     fontWeight: FontWeight.w500,
-                  ),
-                ),
-                SizedBox(height: 8),
-                Text(
-                  'Por favor espere',
-                  style: GoogleFonts.montserrat(
-                    fontSize: 14,
-                    color: Colors.grey[600],
                   ),
                 ),
               ],
@@ -746,34 +732,90 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
       },
     );
 
-    // Simular proceso de venta
-    await Future.delayed(Duration(seconds: 2));
+    try {
+      final idVenta = DateTime.now().millisecondsSinceEpoch % 1000000; // Reduced to 6 digits for SQL Int
+      final fechaVenta = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD format
+      bool hasError = false;
 
-    setState(() {
-      // Actualizar stock
-      _carritos[_carritoActivo].forEach((nombreProducto, cantidad) {
-        final productoIndex = _productos.indexWhere((p) => p['nombre'] == nombreProducto);
-        if (productoIndex != -1) {
-          _productos[productoIndex]['stock'] -= cantidad;
+      // First, update the stock in the database for each product
+      for (var entry in _carritos[_carritoActivo].entries) {
+        final producto = _productos.firstWhere((p) => p['nombre'] == entry.key);
+        final cantidad = entry.value;
+        final idProducto = producto['id'] ?? 1; // Make sure your products have IDs
+
+        // Update the stock in the database
+        final updateStockResponse = await http.put(
+          Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos/$idProducto/stock'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'cantidad': cantidad, // The amount to reduce
+          }),
+        );
+
+        if (updateStockResponse.statusCode != 200) {
+          hasError = true;
+          throw Exception('Error al actualizar el stock del producto: ${producto['nombre']}');
         }
-      });
-
-      _vaciarCarrito();
-      _carritos.removeAt(_carritoActivo);
-      if (_carritos.isEmpty) {
-        _carritoActivo = -1;
-        _showCartFab = false;
-        _fabAnimationController.reverse();
-      } else if (_carritoActivo >= _carritos.length) {
-        _carritoActivo = _carritos.length - 1;
       }
-    });
 
-    // Cerrar diálogo de carga y mostrar mensaje de éxito
-    Navigator.of(context).pop(); // Cerrar diálogo de carga
-    Navigator.of(context).pop(); // Cerrar modal del carrito
+      // Then, register the sales
+      for (var entry in _carritos[_carritoActivo].entries) {
+        final producto = _productos.firstWhere((p) => p['nombre'] == entry.key);
+        final cantidad = entry.value;
+        final precioUnitario = producto['precio'] as double;
+        final precioSubtotal = precioUnitario * cantidad;
+        final idProducto = producto['id'] ?? 1;
 
-    // Mostrar animación de éxito
+        final response = await http.post(
+          Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/ventas'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'IDVenta': idVenta,
+            'IDProducto': idProducto,
+            'Stock': cantidad,
+            'PrecioUnitario': precioUnitario,
+            'PrecioSubtotal': precioSubtotal,
+            'FechaVenta': fechaVenta
+          }),
+        );
+
+        if (response.statusCode != 201) {
+          hasError = true;
+          break;
+        }
+      }
+
+      if (!hasError) {
+        // Instead of manually updating stock, reload products from the API
+        _vaciarCarrito();
+        _carritos.removeAt(_carritoActivo);
+
+        if (_carritos.isEmpty) {
+          _carritoActivo = -1;
+          _showCartFab = false;
+          _fabAnimationController.reverse();
+        } else if (_carritoActivo >= _carritos.length) {
+          _carritoActivo = _carritos.length - 1;
+        }
+
+        // Reload the products from the API
+        _loadProductos();
+
+        Navigator.of(context).pop(); // Close loading dialog
+        Navigator.of(context).pop(); // Close cart modal
+        _mostrarDialogoExito();
+      }else {
+        throw Exception('Error al registrar las ventas en el servidor');
+      }
+    } catch (e) {
+      Navigator.of(context).pop(); // Close loading dialog
+      _mostrarNotificacion('Error al procesar la venta: ${e.toString()}', isError: true);
+      print('Error en venta: $e');
+    }
+  }
+
+// Método auxiliar para mostrar el diálogo de éxito
+  void _mostrarDialogoExito() {
     showDialog(
         context: context,
         builder: (BuildContext context) {
@@ -784,16 +826,16 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
             elevation: 0,
             backgroundColor: Colors.transparent,
             child: Container(
-              padding: EdgeInsets.all(24),
+              padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
                 color: Colors.white,
                 shape: BoxShape.rectangle,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [
+                boxShadow: const [
                   BoxShadow(
                     color: Colors.black26,
                     blurRadius: 10.0,
-                    offset: const Offset(0.0, 10.0),
+                    offset: Offset(0.0, 10.0),
                   ),
                 ],
               ),
@@ -805,7 +847,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                     color: _colorScheme.primary,
                     size: 80,
                   ),
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Text(
                     '¡Venta Exitosa!',
                     style: GoogleFonts.montserrat(
@@ -814,7 +856,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                       color: _colorScheme.primary,
                     ),
                   ),
-                  SizedBox(height: 8),
+                  const SizedBox(height: 8),
                   Text(
                     'La transacción se ha completado correctamente',
                     textAlign: TextAlign.center,
@@ -823,7 +865,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                       color: Colors.grey[600],
                     ),
                   ),
-                  SizedBox(height: 24),
+                  const SizedBox(height: 24),
                   ElevatedButton(
                     onPressed: () {
                       Navigator.of(context).pop();
@@ -833,7 +875,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(15),
                       ),
-                      padding: EdgeInsets.symmetric(horizontal: 50, vertical: 16),
+                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 16),
                       elevation: 0,
                     ),
                     child: Text(
@@ -847,56 +889,57 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
               ),
             ),
           );
-        });
+        }
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final _textTheme = GoogleFonts.montserratTextTheme(Theme.of(context).textTheme);
+    final textTheme = GoogleFonts.montserratTextTheme(Theme.of(context).textTheme);
 
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
-          icon: Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
         title: Text(
           'Venta de Productos',
-          style: _textTheme.headlineMedium?.copyWith(
+          style: textTheme.headlineMedium?.copyWith(
             fontWeight: FontWeight.bold,
             color: Colors.blue,
           ),
         ),
-        backgroundColor: Color(0xFFBBDEFB), // Light blue color
+        backgroundColor: const Color(0xFFBBDEFB), // Light blue color
       ),
 
 
 
-      backgroundColor: _colorScheme.background,
+      backgroundColor: _colorScheme.surface,
       body: SafeArea(
         child: _isLoading
-            ? Center(child: CircularProgressIndicator())
+            ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
             // Barra superior con búsqueda y filtro
             Container(
-              padding: EdgeInsets.all(16),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: Colors.white,
                 boxShadow: [
                   BoxShadow(
                     color: Colors.black.withOpacity(0.05),
                     blurRadius: 10,
-                    offset: Offset(0, 2),
+                    offset: const Offset(0, 2),
                   ),
                 ],
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  SizedBox(height: 16),
+                  const SizedBox(height: 16),
                   Row(
                     children: [
                       // Campo de búsqueda
@@ -907,28 +950,28 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                             hintText: 'Buscar productos...',
                             prefixIcon: Icon(Icons.search, color: _colorScheme.primary),
                             filled: true,
-                            fillColor: _colorScheme.surfaceVariant,
+                            fillColor: _colorScheme.surfaceContainerHighest,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(15),
                               borderSide: BorderSide.none,
                             ),
-                            contentPadding: EdgeInsets.symmetric(vertical: 12),
+                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
                           ),
                         ),
                       ),
-                      SizedBox(width: 12),
+                      const SizedBox(width: 12),
                       // Dropdown para filtrar por categoría
                       Container(
-                        padding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                         decoration: BoxDecoration(
-                          color: _colorScheme.surfaceVariant,
+                          color: _colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(15),
                         ),
                         child: DropdownButtonHideUnderline(
                           child: DropdownButton<String>(
                             value: _categoriaSeleccionada,
                             icon: Icon(Icons.filter_list, color: _colorScheme.primary),
-                            style: _textTheme.titleMedium,
+                            style: textTheme.titleMedium,
                             onChanged: (String? newValue) {
                               setState(() {
                                 _categoriaSeleccionada = newValue!;
@@ -962,17 +1005,17 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                       size: 80,
                       color: Colors.grey.withOpacity(0.5),
                     ),
-                    SizedBox(height: 16),
+                    const SizedBox(height: 16),
                     Text(
                       'No se encontraron productos',
-                      style: _textTheme.headlineSmall?.copyWith(
+                      style: textTheme.headlineSmall?.copyWith(
                         color: Colors.grey,
                       ),
                     ),
-                    SizedBox(height: 8),
+                    const SizedBox(height: 8),
                     Text(
                       'Intenta con otra búsqueda',
-                      style: _textTheme.titleMedium?.copyWith(
+                      style: textTheme.titleMedium?.copyWith(
                         color: Colors.grey[400],
                       ),
                     ),
@@ -980,19 +1023,21 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                 ),
               )
                   : GridView.builder(
-                padding: EdgeInsets.all(16),
+                padding: const EdgeInsets.all(8),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: ResponsiveWrapper.of(context).isMobile ? 2 :
-                  ResponsiveWrapper.of(context).isTablet ? 3 : 4,
-                  childAspectRatio: 0.75,
-                  crossAxisSpacing: 16,
-                  mainAxisSpacing: 16,
+                  crossAxisCount: ResponsiveWrapper.of(context).isMobile ? 1 :
+                  ResponsiveWrapper.of(context).isTablet ? 2 : 5, // 5 columns for desktop
+                  childAspectRatio: ResponsiveWrapper.of(context).isMobile ? 2.5 :
+                  ResponsiveWrapper.of(context).isTablet ? 0.8 : 1.0, // 1.0 ratio for desktop
+                  crossAxisSpacing: 12,
+                  mainAxisSpacing: 12,
                 ),
                 itemCount: _productosFiltrados.length,
                 itemBuilder: (context, index) {
                   final producto = _productosFiltrados[index];
                   final stockDisponible = producto['stock'];
                   final sinStock = stockDisponible == 0;
+
 
                   return Card(
                     elevation: 0,
@@ -1005,108 +1050,92 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                     ),
                     child: InkWell(
                       onTap: sinStock ? null : () => _agregarAlCarrito(producto),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(12),
                       splashColor: _colorScheme.primaryContainer,
                       child: Padding(
-                        padding: const EdgeInsets.all(12.0),
+                        padding: const EdgeInsets.all(8.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Imagen o icono del producto
+                            // Imagen más pequeña
                             Expanded(
-                              flex: 4,
+                              flex: 3,
                               child: Center(
                                 child: Container(
-                                  padding: EdgeInsets.all(12),
+                                  padding: const EdgeInsets.all(8),
                                   decoration: BoxDecoration(
                                     color: producto['color'],
-                                    borderRadius: BorderRadius.circular(12),
+                                    borderRadius: BorderRadius.circular(8),
                                   ),
                                   child: Icon(
                                     producto['categoria'] == 'Tabletas'
                                         ? Icons.medication_outlined
                                         : Icons.liquor_outlined,
                                     color: _colorScheme.primary,
-                                    size: 40,
+                                    size: 32,
                                   ),
                                 ),
                               ),
                             ),
-                            SizedBox(height: 12),
+                            const SizedBox(height: 8),
 
-                            // Información del producto
+                            // Información más compacta
                             Expanded(
-                              flex: 6,
+                              flex: 7,
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
                                     producto['nombre'],
-                                    style: _textTheme.titleMedium?.copyWith(
+                                    style: textTheme.titleSmall?.copyWith(
                                       fontWeight: FontWeight.w600,
                                       color: sinStock ? Colors.grey : null,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  SizedBox(height: 4),
+                                  const SizedBox(height: 2),
                                   Text(
                                     producto['nombreGenerico'],
-                                    style: _textTheme.bodySmall?.copyWith(
+                                    style: textTheme.bodySmall?.copyWith(
                                       color: sinStock ? Colors.grey : Colors.grey[600],
-                                      fontStyle: FontStyle.italic,
+                                      fontSize: 11,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
                                     'Contenido: ${producto['contenido']}',
-                                    style: _textTheme.bodySmall?.copyWith(
+                                    style: textTheme.bodySmall?.copyWith(
                                       color: sinStock ? Colors.grey : Colors.grey[600],
-                                      fontWeight: FontWeight.w500,
+                                      fontSize: 11,
                                     ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
                                   ),
-                                  Text(
-                                    producto['categoria'],
-                                    style: _textTheme.bodySmall?.copyWith(
-                                      color: sinStock ? Colors.grey : Colors.grey[600],
-                                    ),
-                                  ),
-                                  Spacer(),
+                                  const Spacer(),
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
                                       Text(
                                         '\$${producto['precio'].toStringAsFixed(2)}',
-                                        style: _textTheme.titleMedium?.copyWith(
+                                        style: textTheme.titleSmall?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: sinStock ? Colors.grey : _colorScheme.primary,
                                         ),
                                       ),
-                                      sinStock
-                                          ? Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                      Container(
+                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                                         decoration: BoxDecoration(
-                                          color: Colors.red[50],
-                                          borderRadius: BorderRadius.circular(6),
+                                          color: sinStock ? Colors.red[50] : _colorScheme.primaryContainer,
+                                          borderRadius: BorderRadius.circular(4),
                                         ),
                                         child: Text(
-                                          'Agotado',
-                                          style: _textTheme.bodySmall?.copyWith(
-                                            color: Colors.red[400],
+                                          sinStock ? 'Agotado' : 'Stock: ${producto["stock"]}',
+                                          style: textTheme.bodySmall?.copyWith(
+                                            color: sinStock ? Colors.red[400] : _colorScheme.primary,
                                             fontWeight: FontWeight.w500,
-                                          ),
-                                        ),
-                                      )
-                                          : Container(
-                                        padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                        decoration: BoxDecoration(
-                                          color: _colorScheme.primaryContainer,
-                                          borderRadius: BorderRadius.circular(6),
-                                        ),//ho
-                                        child: Text(
-                                          'Stock: ${producto['stock']}',
-                                          style: _textTheme.bodySmall?.copyWith(
-                                            color: _colorScheme.primary,
-                                            fontWeight: FontWeight.w500,
+                                            fontSize: 10,
                                           ),
                                         ),
                                       ),
@@ -1132,10 +1161,10 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         child: FloatingActionButton.extended(
           onPressed: _mostrarCarrito,
           backgroundColor: _colorScheme.primary,
-          icon: Icon(Icons.shopping_cart_outlined),
+          icon: const Icon(Icons.shopping_cart_outlined),
           label: Text(
             '${_contarUnidades()} items - \$${_calcularTotal().toStringAsFixed(2)}',
-            style: TextStyle(fontWeight: FontWeight.bold),
+            style: const TextStyle(fontWeight: FontWeight.bold),
           ),
         ),
       )

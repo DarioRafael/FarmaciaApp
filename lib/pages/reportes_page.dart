@@ -147,7 +147,7 @@ class _ReportesPageState extends State<ReportesPage> {
                           color: Colors.black.withOpacity(0.2),
                           blurRadius: 20,
                           spreadRadius: 2,
-                          offset: Offset(0, 10),
+                          offset: const Offset(0, 10),
                         )
                       ],
                     ),
@@ -198,7 +198,7 @@ class _ReportesPageState extends State<ReportesPage> {
               borderRadius: BorderRadius.circular(12),
             ),
             child: IconButton(
-              icon: Icon(Icons.arrow_back, color: Colors.white),
+              icon: const Icon(Icons.arrow_back, color: Colors.white),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -245,7 +245,7 @@ class _ReportesPageState extends State<ReportesPage> {
           Text(
             'Selecciona el tipo de reporte',
             style: GoogleFonts.poppins(
-              color: Color(0xFF0A2463),
+              color: const Color(0xFF0A2463),
               fontSize: 18,
               fontWeight: FontWeight.w600,
             ),
@@ -261,14 +261,14 @@ class _ReportesPageState extends State<ReportesPage> {
               _buildReportTypeCard(
                 'Inventario',
                 Icons.inventory_2_outlined,
-                Color(0xFF3E92CC),
-                Color(0xFF0A2463),
+                const Color(0xFF3E92CC),
+                const Color(0xFF0A2463),
               ),
               _buildReportTypeCard(
                 'Ventas',
                 Icons.analytics_outlined,
-                Color(0xFF3E92CC),
-                Color(0xFF0A2463),
+                const Color(0xFF3E92CC),
+                const Color(0xFF0A2463),
               ),
             ],
           ),
@@ -281,7 +281,7 @@ class _ReportesPageState extends State<ReportesPage> {
     final isSelected = _reportType == title;
 
     return AnimatedContainer(
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
       curve: Curves.easeInOut,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
@@ -297,7 +297,7 @@ class _ReportesPageState extends State<ReportesPage> {
             BoxShadow(
               color: gradientEnd.withOpacity(0.4),
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             )
         ],
       ),
@@ -311,16 +311,16 @@ class _ReportesPageState extends State<ReportesPage> {
             selectedProductIds.clear();
           }),
           child: Padding(
-            padding: EdgeInsets.all(16),
+            padding: const EdgeInsets.all(16),
             child: Row(
               children: [
                 Icon(icon, size: 28,
-                    color: isSelected ? Colors.white : Color(0xFF0A2463)),
-                SizedBox(width: 16),
+                    color: isSelected ? Colors.white : const Color(0xFF0A2463)),
+                const SizedBox(width: 16),
                 Text(
                   title,
                   style: GoogleFonts.poppins(
-                    color: isSelected ? Colors.white : Color(0xFF0A2463),
+                    color: isSelected ? Colors.white : const Color(0xFF0A2463),
                     fontSize: 16,
                     fontWeight: FontWeight.w600,
                   ),
@@ -666,37 +666,37 @@ class _ReportesPageState extends State<ReportesPage> {
     bool canGenerate = _startDate != null && _endDate != null;
 
     return AnimatedContainer(
-      duration: Duration(milliseconds: 300),
+      duration: const Duration(milliseconds: 300),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
         boxShadow: [
           if (canGenerate)
             BoxShadow(
-              color: Color(0xFF0A2463).withOpacity(0.4),
+              color: const Color(0xFF0A2463).withOpacity(0.4),
               blurRadius: 10,
-              offset: Offset(0, 4),
+              offset: const Offset(0, 4),
             )
         ],
       ),
       child: ElevatedButton(
         onPressed: canGenerate ? _generateAndDownloadPDF : null,
         style: ElevatedButton.styleFrom(
-          backgroundColor: canGenerate ? Color(0xFF3E92CC) : Colors.grey,
+          backgroundColor: canGenerate ? const Color(0xFF3E92CC) : Colors.grey,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(15),
           ),
-          padding: EdgeInsets.symmetric(vertical: 18),
+          padding: const EdgeInsets.symmetric(vertical: 18),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             AnimatedSwitcher(
-              duration: Duration(milliseconds: 300),
+              duration: const Duration(milliseconds: 300),
               child: canGenerate
-                  ? Icon(Icons.file_download, color: Colors.white)
-                  : Icon(Icons.block, color: Colors.white),
+                  ? const Icon(Icons.file_download, color: Colors.white)
+                  : const Icon(Icons.block, color: Colors.white),
             ),
-            SizedBox(width: 12),
+            const SizedBox(width: 12),
             Text(
               'GENERAR REPORTE',
               style: GoogleFonts.poppins(
@@ -805,10 +805,10 @@ class _ReportesPageState extends State<ReportesPage> {
   pw.Widget _buildPDFHeader() {
     return pw.Container(
       decoration: pw.BoxDecoration(
-        color: PdfColor.fromInt(0xFF0A2463),
+        color: const PdfColor.fromInt(0xFF0A2463),
         borderRadius: pw.BorderRadius.circular(8),
       ),
-      padding: pw.EdgeInsets.all(20),
+      padding: const pw.EdgeInsets.all(20),
       child: pw.Column(
         crossAxisAlignment: pw.CrossAxisAlignment.start,
         children: [
@@ -823,7 +823,7 @@ class _ReportesPageState extends State<ReportesPage> {
           pw.SizedBox(height: 8),
           pw.Text(
             'Periodo: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
-            style: pw.TextStyle(
+            style: const pw.TextStyle(
               color: PdfColors.white,
               fontSize: 12,
             ),
@@ -845,7 +845,7 @@ class _ReportesPageState extends State<ReportesPage> {
       border: pw.TableBorder.all(),
       children: [
         pw.TableRow(
-          decoration: pw.BoxDecoration(color: PdfColors.grey300),
+          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
           children: [
             _buildTableHeader('Producto'),
             _buildTableHeader('Categoría'),
@@ -871,7 +871,7 @@ class _ReportesPageState extends State<ReportesPage> {
               _buildTableCell('\$${total.toStringAsFixed(2)}'),
             ],
           );
-        }).toList(),
+        }),
       ],
     );
   }
@@ -880,14 +880,14 @@ class _ReportesPageState extends State<ReportesPage> {
     return pw.TableHelper.fromTextArray(
 
       headerDecoration: pw.BoxDecoration(
-        color: PdfColor.fromInt(0xFF3E92CC),
+        color: const PdfColor.fromInt(0xFF3E92CC),
         borderRadius: pw.BorderRadius.circular(4),
       ),
       headerStyle: pw.TextStyle(
         color: PdfColors.white,
         fontWeight: pw.FontWeight.bold,
       ),
-      rowDecoration: pw.BoxDecoration(
+      rowDecoration: const pw.BoxDecoration(
         border: pw.Border(
           bottom: pw.BorderSide(
             color: PdfColor.fromInt(0xFF0A2463),

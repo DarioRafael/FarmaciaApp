@@ -12,7 +12,8 @@ class LoginPage extends StatefulWidget {
   State<LoginPage> createState() => _LoginPageState();
 }
 
-class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMixin {
+class _LoginPageState extends State<LoginPage>
+    with SingleTickerProviderStateMixin {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _formKey = GlobalKey<FormState>();
@@ -70,7 +71,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         final password = _passwordController.text;
 
         final response = await http.post(
-          Uri.parse('https://modelo-server.vercel.app/api/v1/ingresar'),
+          Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/ingresar'),
           headers: <String, String>{
             'Content-Type': 'application/json; charset=UTF-8',
           },
@@ -150,29 +151,31 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
 
   Future<bool> _onWillPop() async {
     return await showDialog<bool>(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text('¿Salir de la aplicación?'),
-        content: const Text('¿Estás seguro de que quieres salir?'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(context).pop(false),
-            child: const Text('Cancelar'),
-          ),
-          ElevatedButton(
-            onPressed: () => Navigator.of(context).pop(true),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF004D40),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+          context: context,
+          builder: (context) => AlertDialog(
+            shape:
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            title: const Text('¿Salir de la aplicación?'),
+            content: const Text('¿Estás seguro de que quieres salir?'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.of(context).pop(false),
+                child: const Text('Cancelar'),
               ),
-            ),
-            child: const Text('Salir'),
+              ElevatedButton(
+                onPressed: () => Navigator.of(context).pop(true),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF004D40),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                child: const Text('Salir'),
+              ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
   }
 
   @override
@@ -219,10 +222,21 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                             ),
                           ],
                         ),
-                        child: Icon(
-                          Icons.local_pharmacy_rounded,
-                          size: isSmallScreen ? 70 : 85,
-                          color: primaryBlue,
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/cinnamorrollnurse.png',
+                            width: isSmallScreen ? 100 : 120,
+                            height: isSmallScreen ? 100 : 120,
+                            fit: BoxFit.cover,
+                            errorBuilder: (context, error, stackTrace) {
+                              print('Error loading image: $error');
+                              return Icon(
+                                Icons.error_outline,
+                                size: isSmallScreen ? 70 : 85,
+                                color: primaryBlue,
+                              );
+                            },
+                          ),
                         ),
                       ),
                       SizedBox(height: padding),
@@ -286,7 +300,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
                                   onPressed: () {
                                     // Implementar recuperación de contraseña
                                   },
-                                  child: Text(
+                                  child: const Text(
                                     '¿Olvidaste tu contraseña?',
                                     style: TextStyle(
                                       color: secondaryBlue,
@@ -327,6 +341,20 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       obscureText: obscureText,
       enabled: !_isLoading,
       style: const TextStyle(fontSize: 16),
+      // Añadir el manejador de teclas
+      onFieldSubmitted: (value) {
+        if (focusNode == _passwordFocusNode) {
+          _login();
+        }
+      },
+      // Configurar la acción del teclado
+      textInputAction: focusNode == _passwordFocusNode
+          ? TextInputAction.done
+          : TextInputAction.next,
+      // Si no es el campo de contraseña, mover al siguiente campo
+      onEditingComplete: focusNode == _passwordFocusNode
+          ? () => _login()
+          : () => FocusScope.of(context).nextFocus(),
       decoration: InputDecoration(
         labelText: label,
         hintText: hint,
@@ -338,16 +366,16 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: accentBlue),
+          borderSide: const BorderSide(color: accentBlue),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(15),
-          borderSide: BorderSide(color: primaryBlue, width: 2),
+          borderSide: const BorderSide(color: primaryBlue, width: 2),
         ),
         filled: true,
         fillColor: Colors.white,
-        labelStyle: TextStyle(color: secondaryBlue),
-        floatingLabelStyle: TextStyle(color: primaryBlue),
+        labelStyle: const TextStyle(color: secondaryBlue),
+        floatingLabelStyle: const TextStyle(color: primaryBlue),
       ),
       validator: (value) {
         if (value?.isEmpty ?? true) {
@@ -378,7 +406,7 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
       height: isSmallScreen ? 50 : 56,
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(15),
-        gradient: LinearGradient(
+        gradient: const LinearGradient(
           colors: [primaryBlue, secondaryBlue],
           begin: Alignment.centerLeft,
           end: Alignment.centerRight,
@@ -402,22 +430,22 @@ class _LoginPageState extends State<LoginPage> with SingleTickerProviderStateMix
         ),
         child: _isLoading
             ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
-          ),
-        )
+                width: 24,
+                height: 24,
+                child: CircularProgressIndicator(
+                  color: Colors.white,
+                  strokeWidth: 2,
+                ),
+              )
             : Text(
-          'Iniciar sesión',
-          style: TextStyle(
-            fontSize: isSmallScreen ? 16 : 18,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-            letterSpacing: 0.5,
-          ),
-        ),
+                'Iniciar sesión',
+                style: TextStyle(
+                  fontSize: isSmallScreen ? 16 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                  letterSpacing: 0.5,
+                ),
+              ),
       ),
     );
   }

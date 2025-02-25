@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class CatalogoPage extends StatefulWidget {
-  const CatalogoPage({Key? key}) : super(key: key);
+  const CatalogoPage({super.key});
 
   @override
   _CatalogoPageState createState() => _CatalogoPageState();
@@ -221,7 +221,7 @@ class _CatalogoPageState extends State<CatalogoPage> {
             return DataRow(
               cells: [
                 DataCell(
-                  Container(
+                  SizedBox(
                     width: productWidth,
                     child: Text(
                       producto['producto'],
@@ -296,7 +296,7 @@ class _CatalogoPageState extends State<CatalogoPage> {
         ],
       ),
       body: _isLoading
-          ? Center(child: CircularProgressIndicator())
+          ? const Center(child: CircularProgressIndicator())
           : Padding(
         padding: EdgeInsets.all(isSmallScreen ? 8.0 : 16.0),
         child: Column(

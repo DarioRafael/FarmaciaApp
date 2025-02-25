@@ -4,7 +4,7 @@ import 'package:intl/intl.dart';
 import 'dart:convert';
 
 class ReabastecimientosPage extends StatefulWidget {
-  const ReabastecimientosPage({Key? key}) : super(key: key);
+  const ReabastecimientosPage({super.key});
 
   @override
   _ReabastecimientosPageState createState() => _ReabastecimientosPageState();
@@ -38,8 +38,8 @@ class _ReabastecimientosPageState extends State<ReabastecimientosPage> {
   }
 
   Future<void> _fetchReabastecimientos() async {
-    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-    final String transactionsEndpoint = '/transacciones';
+    const String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    const String transactionsEndpoint = '/transacciones';
 
     setState(() {
       _isLoading = true;
@@ -286,8 +286,8 @@ class _ReabastecimientosPageState extends State<ReabastecimientosPage> {
       floatingActionButton: FloatingActionButton(
         onPressed: _fetchReabastecimientos,
         backgroundColor: Colors.deepPurple,
-        child: const Icon(Icons.refresh),
         tooltip: 'Recargar Reabastecimientos',
+        child: const Icon(Icons.refresh),
       ),
     );
   }

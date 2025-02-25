@@ -3,9 +3,10 @@ import 'dart:math';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
 class InventarioPage extends StatefulWidget {
-  const InventarioPage({Key? key}) : super(key: key);
+  const InventarioPage({super.key});
 
   @override
   _InventarioPageState createState() => _InventarioPageState();
@@ -16,7 +17,7 @@ class _InventarioPageState extends State<InventarioPage> {
   String _selectedFilter = 'Todos';
   List<Map<String, dynamic>> _productos = [];
   List<String> _filterOptions = ['Todos'];
-  List<bool> _selectedInventories = List.generate(11, (_) => true);
+  final List<bool> _selectedInventories = List.generate(11, (_) => true);
 
 
   List<Map<String, dynamic>> _filteredProducts = [];
@@ -39,11 +40,11 @@ class _InventarioPageState extends State<InventarioPage> {
   double actionsWidth = 60.0;
 
 
-  final Color primaryBlue = Color(0xFF1A237E); // Dark blue
-  final Color secondaryBlue = Color(0xFF3949AB); // Medium blue
-  final Color lightBlue = Color(0xFFE8EAF6); // Light blue
+  static const Color primaryBlue = Color(0xFF1A237E); // Dark blue
+  static const Color secondaryBlue = Color(0xFF3949AB); // Medium blue
+  static const Color lightBlue = Color(0xFFE8EAF6); // Light blue
   final Color white = Colors.white;
-  final Color tableHeaderColor = Color(0xFFE3F2FD); // Very light blue
+  static const Color tableHeaderColor = Color(0xFFE3F2FD); // Very light blue
 
   final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
 
@@ -65,13 +66,13 @@ class _InventarioPageState extends State<InventarioPage> {
         setState(() {
           _productos = data.map((item) {
             // Assign a color based on forma farmaceutica
-            Color itemColor = Color(0xFFE3F2FD); // Default light blue
+            Color itemColor = const Color(0xFFE3F2FD); // Default light blue
             if (item['FormaFarmaceutica'] == 'Tabletas') {
-              itemColor = Color(0xFFE3F2FD);
+              itemColor = const Color(0xFFE3F2FD);
             } else if (item['FormaFarmaceutica'] == 'Bebibles' ||
                 item['FormaFarmaceutica'] == 'Jarabe' ||
                 item['FormaFarmaceutica'] == 'Suspensión') {
-              itemColor = Color(0xFFF3E5F5);
+              itemColor = const Color(0xFFF3E5F5);
             }
 
             return {
@@ -108,10 +109,18 @@ class _InventarioPageState extends State<InventarioPage> {
     final random = Random();
     _allInventories = List.generate(10, (_) {
       return _productos.map((producto) {
+        // Random price variation between -20% and +20% of original price
+        final originalPrice = producto['precio'] as double;
+        final priceVariation = (random.nextDouble() * 0.4) - 0.2; // -0.2 to 0.2
+        final newPrice = originalPrice * (1 + priceVariation);
+
+        // Random stock between 0 and 100
+        final newStock = random.nextInt(101); // 0 to 100
+
         return {
           ...producto,
-          'stock': random.nextInt(100) + 1,
-          // Genera un stock aleatorio entre 1 y 100
+          'precio': double.parse(newPrice.toStringAsFixed(2)),
+          'unidadesPorCaja': newStock,
         };
       }).toList();
     });
@@ -228,53 +237,7 @@ class _InventarioPageState extends State<InventarioPage> {
     );
   }
 
-  void _mostrarFormularioEditarProducto(Map<String, dynamic> producto) {
-    final TextEditingController nombreController = TextEditingController(
-        text: producto['nombre']
-    );
-    final TextEditingController precioController = TextEditingController(
-        text: producto['precio'].toString()
-    );
 
-    showDialog(
-      context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: const Text('Editar Producto'),
-            content: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextField(
-                  controller: nombreController,
-                  decoration: const InputDecoration(labelText: 'Nombre'),
-                ),
-                TextField(
-                  controller: precioController,
-                  decoration: const InputDecoration(labelText: 'Precio'),
-                  keyboardType: TextInputType.numberWithOptions(decimal: true),
-                ),
-              ],
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () async {
-                  await _actualizarProducto(
-                    producto['id'],
-                    nombreController.text,
-                    double.parse(precioController.text),
-                  );
-                  Navigator.pop(context);
-                },
-                child: const Text('Guardar'),
-              ),
-            ],
-          ),
-    );
-  }
 
   Future<void> _actualizarProducto(int id, String nombre, double precio) async {
     try {
@@ -299,14 +262,14 @@ class _InventarioPageState extends State<InventarioPage> {
         });
 
         ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Producto actualizado correctamente'))
+            const SnackBar(content: Text('Producto actualizado correctamente'))
         );
       } else {
         throw Exception('Error al actualizar el producto');
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Error: No se pudo actualizar el producto'))
+          const SnackBar(content: Text('Error: No se pudo actualizar el producto'))
       );
     }
   }
@@ -339,67 +302,154 @@ class _InventarioPageState extends State<InventarioPage> {
   void _mostrarFormularioReabastecerProducto(Map<String, dynamic> producto) {
     final TextEditingController stockController = TextEditingController();
     final random = Random();
-    final restockCost = random.nextDouble() *
-        100; // Generate a random cost between 0 and 100
+    final restockCost = random.nextDouble() * 100;
 
     showDialog(
       context: context,
-      builder: (context) =>
-          AlertDialog(
-            title: const Text('Reabastecer Producto'),
-            content: StatefulBuilder(
-              builder: (context, setState) {
-                double totalCost = 0;
-                if (stockController.text.isNotEmpty) {
-                  totalCost = restockCost * int.parse(stockController.text);
-                }
+      builder: (context) => AlertDialog(
+        title: const Text('Reabastecer Producto'),
+        content: StatefulBuilder(
+          builder: (context, setState) {
+            double totalCost = 0;
+            if (stockController.text.isNotEmpty) {
+              // Cálculo del costo total
+            }
 
-                return Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text('Stock actual: ${producto['stock']}'),
-                    TextField(
-                      controller: stockController,
-                      decoration: const InputDecoration(
-                          labelText: 'Cantidad a reabastecer'),
-                      keyboardType: TextInputType.number,
-                      onChanged: (value) {
-                        setState(() {
-                          totalCost = restockCost * (int.tryParse(value) ?? 0);
-                        });
-                      },
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Costo por unidad: \$${restockCost.toStringAsFixed(
-                        2)}'),
-                    const SizedBox(height: 8),
-                    Text('Costo total: \$${totalCost.toStringAsFixed(2)}'),
+            return Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: stockController,
+                  keyboardType: TextInputType.number,
+                  inputFormatters: [
+                    FilteringTextInputFormatter.digitsOnly, // Solo permite números
                   ],
-                );
-              },
-            ),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(context),
-                child: const Text('Cancelar'),
-              ),
-              TextButton(
-                onPressed: () {
-                  _reabastecerProducto(producto, stockController.text);
-                  Navigator.pop(context);
-                },
-                child: const Text('Reabastecer'),
-              ),
-            ],
+                  decoration: const InputDecoration(
+                    labelText: 'Cantidad a reabastecer',
+                    hintText: 'Ingrese la cantidad',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                // Resto del contenido...
+              ],
+            );
+          },
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
           ),
+          TextButton(
+            onPressed: () {
+              if (stockController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Por favor ingrese una cantidad válida'))
+                );
+                return;
+              }
+              _reabastecerProducto(producto, stockController.text);
+              Navigator.pop(context);
+            },
+            child: const Text('Reabastecer'),
+          ),
+        ],
+      ),
     );
   }
 
-  void _reabastecerProducto(Map<String, dynamic> producto, String cantidad) {
-    setState(() {
-      producto['stock'] += int.parse(cantidad);
-      _filterProducts();
-    });
+  void _mostrarFormularioEditarProducto(Map<String, dynamic> producto) {
+    final TextEditingController nombreController = TextEditingController(text: producto['nombre']);
+    final TextEditingController precioController = TextEditingController(text: producto['precio'].toString());
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Editar Producto'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nombreController,
+              decoration: const InputDecoration(
+                labelText: 'Nombre del producto',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: precioController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d*\.?\d{0,2}')), // Solo números y hasta 2 decimales
+              ],
+              decoration: const InputDecoration(
+                labelText: 'Precio',
+                prefixText: '\$',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancelar'),
+          ),
+          TextButton(
+            onPressed: () {
+              if (precioController.text.isEmpty || nombreController.text.isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Por favor complete todos los campos'))
+                );
+                return;
+              }
+              _actualizarProducto(
+                producto['id'],
+                nombreController.text,
+                double.parse(precioController.text),
+              );
+              Navigator.pop(context);
+            },
+            child: const Text('Guardar'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _reabastecerProducto(Map<String, dynamic> producto, String cantidad) async {
+    try {
+      final response = await http.put(
+        Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos/${producto['id']}/reabastecer'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'cantidad': int.parse(cantidad)
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Reload all products from API
+        await _loadProductsFromApi();
+
+        // Show success message
+        ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Producto reabastecido correctamente'),
+              backgroundColor: Colors.green,
+            )
+        );
+      } else {
+        throw Exception('Error al reabastecer el producto: ${response.statusCode}');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error: $e'),
+            backgroundColor: Colors.red,
+          )
+      );
+    }
   }
 
   List<Tab> _buildTabs() {
@@ -412,7 +462,7 @@ class _InventarioPageState extends State<InventarioPage> {
               padding: const EdgeInsets.symmetric(horizontal: 8.0),
               child: Text(
                 i == 0 ? 'Local' : 'Sucursal $i',
-                style: TextStyle(
+                style: const TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w500,
                 ),
@@ -447,7 +497,7 @@ class _InventarioPageState extends State<InventarioPage> {
           SingleChildScrollView(
             scrollDirection: Axis.vertical,
             child: Padding(
-              padding: EdgeInsets.all(16.0),
+              padding: const EdgeInsets.all(16.0),
               child: _buildProductTablesByCategory(inventoryData, isSmallScreen, currentTab),
             ),
           ),
@@ -458,7 +508,7 @@ class _InventarioPageState extends State<InventarioPage> {
 
     if (views.isEmpty) {
       views.add(
-        Center(
+        const Center(
           child: Text(
             'No hay inventarios seleccionados',
             style: TextStyle(
@@ -509,7 +559,7 @@ class _InventarioPageState extends State<InventarioPage> {
               thumbVisibility: true,
               trackVisibility: true,
               thickness: 8,
-              radius: Radius.circular(4),
+              radius: const Radius.circular(4),
               child: SingleChildScrollView(
                 controller: scrollController,
                 scrollDirection: Axis.horizontal,
@@ -570,7 +620,7 @@ class _InventarioPageState extends State<InventarioPage> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(Icons.store, color: white),
-                SizedBox(width: 8),
+                const SizedBox(width: 8),
                 Text('Sucursales',
                     style: TextStyle(
                       color: white,
@@ -592,7 +642,7 @@ class _InventarioPageState extends State<InventarioPage> {
                                 index == 0
                                     ? 'Inventario Local'
                                     : 'Sucursal $index',
-                                style: TextStyle(color: primaryBlue),
+                                style: const TextStyle(color: primaryBlue),
                               ),
                               value: _selectedInventories[index],
                               activeColor: secondaryBlue,
@@ -657,7 +707,7 @@ class _InventarioPageState extends State<InventarioPage> {
                     child: Column(
                       children: [
                         Container(
-                          decoration: BoxDecoration(
+                          decoration: const BoxDecoration(
                             color: secondaryBlue,
                             borderRadius: BorderRadius.only(
                               topLeft: Radius.circular(12),
@@ -698,7 +748,7 @@ class _InventarioPageState extends State<InventarioPage> {
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
             blurRadius: 4,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
@@ -707,7 +757,7 @@ class _InventarioPageState extends State<InventarioPage> {
         decoration: InputDecoration(
           hintText: 'Buscar producto',
           hintStyle: TextStyle(color: Colors.grey[400]),
-          prefixIcon: Icon(Icons.search, color: secondaryBlue),
+          prefixIcon: const Icon(Icons.search, color: secondaryBlue),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(8),
             borderSide: BorderSide.none,
@@ -730,20 +780,20 @@ class _InventarioPageState extends State<InventarioPage> {
           BoxShadow(
             color: Colors.black.withOpacity(0.1),
             blurRadius: 4,
-            offset: Offset(0, 2),
+            offset: const Offset(0, 2),
           ),
         ],
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
           value: _selectedFilter,
-          icon: Icon(Icons.arrow_drop_down, color: secondaryBlue),
+          icon: const Icon(Icons.arrow_drop_down, color: secondaryBlue),
           items: _filterOptions.map((String value) {
             return DropdownMenuItem<String>(
               value: value,
               child: Text(
                 value,
-                style: TextStyle(color: primaryBlue),
+                style: const TextStyle(color: primaryBlue),
               ),
             );
           }).toList(),
@@ -758,8 +808,22 @@ class _InventarioPageState extends State<InventarioPage> {
     );
   }
 
-  String _formatDate(DateTime date) {
-    return DateFormat('dd/MM/yyyy').format(date);
+  String _formatDate(dynamic date) {
+    if (date == null) return '';
+
+    if (date is String) {
+      try {
+        return DateFormat('dd/MM/yyyy').format(DateTime.parse(date));
+      } catch (e) {
+        return date;
+      }
+    }
+
+    if (date is DateTime) {
+      return DateFormat('dd/MM/yyyy').format(date);
+    }
+
+    return '';
   }
 
   DataTable _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen, int currentTab) {
@@ -768,120 +832,62 @@ class _InventarioPageState extends State<InventarioPage> {
       DataColumn(
         label: SizedBox(
           width: idWidth,
-          child: Text('ID',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('ID', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: nombreGenericoWidth,
-          child: Text('Nombre Genérico',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Nombre Genérico', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: nombreMedicoWidth,
-          child: Text('Nombre Médico',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Nombre Médico', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: fabricanteWidth,
-          child: Text('Fabricante',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Fabricante', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: contenidoWidth,
-          child: Text('Contenido',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Contenido', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: formaWidth,
-          child: Text('Forma',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Forma', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: fechaFabWidth,
-          child: Text('Fabricación',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Fabricación', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: presentacionWidth,
-          child: Text('Presentación',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Presentación', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: fechaCadWidth,
-          child: Text('Caducidad',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-          ),
+          child: const Text('Caducidad', style: TextStyle(fontWeight: FontWeight.bold)),
         ),
       ),
       DataColumn(
         label: SizedBox(
           width: unidadesWidth,
-          child: Text('Unid/Caja',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
+          child: const Text('Unid/Caja',
+            style: TextStyle(fontWeight: FontWeight.bold),
             textAlign: TextAlign.right,
           ),
         ),
@@ -890,26 +896,8 @@ class _InventarioPageState extends State<InventarioPage> {
       DataColumn(
         label: SizedBox(
           width: precioWidth,
-          child: Text('Precio',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
-            textAlign: TextAlign.right,
-          ),
-        ),
-        numeric: true,
-      ),
-      DataColumn(
-        label: SizedBox(
-          width: stockWidth,
-          child: Text('Stock',
-            style: TextStyle(
-              fontSize: isSmallScreen ? 12 : 14,
-              fontWeight: FontWeight.bold,
-              color: primaryBlue,
-            ),
+          child: const Text('Precio',
+            style: TextStyle(fontWeight: FontWeight.bold),
             textAlign: TextAlign.right,
           ),
         ),
@@ -917,21 +905,21 @@ class _InventarioPageState extends State<InventarioPage> {
       ),
     ];
 
-    // Only add actions column for local inventory (tab 0)
+    // Add actions column only for local inventory (tab 0)
     if (currentTab == 0) {
       columns.add(
         DataColumn(
           label: SizedBox(
             width: actionsWidth,
-            child: Text(''),
+            child: const Text('Acciones', style: TextStyle(fontWeight: FontWeight.bold)),
           ),
         ),
       );
     }
 
     return DataTable(
-      headingRowColor: MaterialStateProperty.all(tableHeaderColor),
-      dataRowColor: MaterialStateProperty.all(white),
+      headingRowColor: WidgetStateProperty.all(tableHeaderColor),
+      dataRowColor: WidgetStateProperty.all(white),
       columnSpacing: isSmallScreen ? 12 : 24.0,
       horizontalMargin: isSmallScreen ? 8 : 16.0,
       columns: columns,
@@ -939,112 +927,89 @@ class _InventarioPageState extends State<InventarioPage> {
     );
   }
 
-
   List<DataRow> _buildDataRows(List<Map<String, dynamic>> products, bool isSmallScreen, int currentTab) {
     return products.map((producto) {
       final DateTime now = DateTime.now();
       final DateTime fechaCaducidad = producto['fechaCaducidad'] != null
-          ? producto['fechaCaducidad'] is DateTime
-          ? producto['fechaCaducidad']
-          : DateTime.parse(producto['fechaCaducidad'].toString())
-          : DateTime.now();
+          ? (producto['fechaCaducidad'] is String
+          ? DateTime.parse(producto['fechaCaducidad'])
+          : producto['fechaCaducidad'])
+          : now;
 
       final bool isCaducado = fechaCaducidad.isBefore(now);
       final bool isNearCaducidad = fechaCaducidad.difference(now).inDays < 90;
 
       final TextStyle caducidadStyle = TextStyle(
         fontSize: isSmallScreen ? 11 : 13,
-        color: isCaducado ? Colors.red : (isNearCaducidad ? Colors.orange : primaryBlue),
+        color: isCaducado ? Colors.red : isNearCaducidad ? Colors.orange : Colors.black,
         fontWeight: isCaducado || isNearCaducidad ? FontWeight.bold : FontWeight.normal,
       );
 
       final TextStyle baseStyle = TextStyle(
         fontSize: isSmallScreen ? 11 : 13,
-        color: primaryBlue,
       );
 
       List<DataCell> cells = [
-        DataCell(SizedBox(width: idWidth,
-            child: Text(producto['id']?.toString() ?? '', style: baseStyle))),
-        DataCell(SizedBox(width: nombreGenericoWidth,
-            child: Text(producto['nombre']?.toString() ?? '', style: baseStyle,
-                overflow: TextOverflow.ellipsis))),
-        DataCell(SizedBox(width: nombreMedicoWidth,
-            child: Text(producto['nombreMedico']?.toString() ?? '', style: baseStyle,
-                overflow: TextOverflow.ellipsis))),
-        DataCell(SizedBox(width: fabricanteWidth,
-            child: Text(producto['fabricante']?.toString() ?? '', style: baseStyle,
-                overflow: TextOverflow.ellipsis))),
-        DataCell(SizedBox(width: contenidoWidth,
-            child: Text(producto['contenido']?.toString() ?? '', style: baseStyle,
-                overflow: TextOverflow.ellipsis))),
-        DataCell(SizedBox(width: formaWidth,
-            child: Text(producto['categoria']?.toString() ?? '', style: baseStyle,
-                overflow: TextOverflow.ellipsis))),
-        DataCell(SizedBox(width: fechaFabWidth,
-            child: Text(producto['fechaFabricacion'] != null ?
-            _formatDate(producto['fechaFabricacion']) : '', style: baseStyle))),
-        DataCell(SizedBox(width: presentacionWidth,
-            child: Text(producto['presentacion']?.toString() ?? '', style: baseStyle,
-                overflow: TextOverflow.ellipsis))),
-        DataCell(SizedBox(width: fechaCadWidth,
-            child: Text(_formatDate(fechaCaducidad), style: caducidadStyle))),
-        DataCell(SizedBox(width: unidadesWidth,
-            child: Text(producto['unidadesPorCaja']?.toString() ?? '0', style: baseStyle,
-                textAlign: TextAlign.right))),
-        DataCell(SizedBox(width: precioWidth,
-            child: Text('\$${(producto['precio'] ?? 0).toStringAsFixed(2)}',
-                style: baseStyle, textAlign: TextAlign.right))),
-        DataCell(SizedBox(width: stockWidth,
-            child: Text(producto['stock']?.toString() ?? '0', style: baseStyle,
-                textAlign: TextAlign.right))),
+        DataCell(SizedBox(width: idWidth, child: Text(producto['id']?.toString() ?? '', style: baseStyle))),
+        DataCell(SizedBox(width: nombreGenericoWidth, child: Text(producto['nombre']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: nombreMedicoWidth, child: Text(producto['nombreMedico']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: fabricanteWidth, child: Text(producto['fabricante']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: contenidoWidth, child: Text(producto['contenido']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: formaWidth, child: Text(producto['categoria']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: fechaFabWidth, child: Text(_formatDate(producto['fechaFabricacion']), style: baseStyle))),
+        DataCell(SizedBox(width: presentacionWidth, child: Text(producto['presentacion']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: fechaCadWidth, child: Text(_formatDate(fechaCaducidad), style: caducidadStyle))),
+        DataCell(SizedBox(width: unidadesWidth, child: Text(producto['unidadesPorCaja']?.toString() ?? '0', style: baseStyle, textAlign: TextAlign.right))),
+        DataCell(SizedBox(width: precioWidth, child: Text('\$${(producto['precio'] ?? 0).toStringAsFixed(2)}', style: baseStyle, textAlign: TextAlign.right))),
       ];
 
       // Only add actions cell for local inventory (tab 0)
       if (currentTab == 0) {
         cells.add(
-          DataCell(SizedBox(
-            width: actionsWidth,
-            child: PopupMenuButton<String>(
-              icon: Icon(Icons.more_vert, color: secondaryBlue, size: isSmallScreen ? 18 : 24),
-              itemBuilder: (context) => [
-                PopupMenuItem(
-                  value: 'edit',
-                  child: ListTile(
-                    leading: Icon(Icons.edit, color: secondaryBlue),
-                    title: Text('Editar', style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
+          DataCell(
+            SizedBox(
+              width: actionsWidth,
+              child: PopupMenuButton<String>(
+                icon: const Icon(Icons.more_vert, color: primaryBlue),
+                onSelected: (String value) {
+                  switch (value) {
+                    case 'edit':
+                      _mostrarFormularioEditarProducto(producto);
+                      break;
+                    case 'restock':
+                      _mostrarFormularioReabastecerProducto(producto);
+                      break;
+                    case 'delete':
+                      _mostrarDialogoEliminar(producto);
+                      break;
+                  }
+                },
+                itemBuilder: (BuildContext context) => <PopupMenuEntry<String>>[
+                  const PopupMenuItem<String>(
+                    value: 'edit',
+                    child: ListTile(
+                      leading: Icon(Icons.edit, color: primaryBlue),
+                      title: Text('Editar'),
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'restock',
-                  child: ListTile(
-                    leading: Icon(Icons.add_shopping_cart, color: secondaryBlue),
-                    title: Text('Reabastecer', style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
+                  const PopupMenuItem<String>(
+                    value: 'restock',
+                    child: ListTile(
+                      leading: Icon(Icons.add_shopping_cart, color: primaryBlue),
+                      title: Text('Reabastecer'),
+                    ),
                   ),
-                ),
-                PopupMenuItem(
-                  value: 'delete',
-                  child: ListTile(
-                    leading: Icon(Icons.delete, color: Colors.red),
-                    title: Text('Eliminar', style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
+                  const PopupMenuItem<String>(
+                    value: 'delete',
+                    child: ListTile(
+                      leading: Icon(Icons.delete, color: Colors.red),
+                      title: Text('Eliminar'),
+                    ),
                   ),
-                ),
-              ],
-              onSelected: (value) {
-                switch (value) {
-                  case 'edit':
-                    _mostrarFormularioEditarProducto(producto);
-                    break;
-                  case 'restock':
-                    _mostrarFormularioReabastecerProducto(producto);
-                    break;
-                  case 'delete':
-                    _mostrarDialogoEliminar(producto);
-                    break;
-                }
-              },
+                ],
+              ),
             ),
-          )),
+          ),
         );
       }
 

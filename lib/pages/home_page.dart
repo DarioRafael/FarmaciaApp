@@ -2,11 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop_app/pages/usuarios_page.dart';
 import 'cobro_page.dart';
-import 'catalogo_page.dart';
 import 'inventario_page.dart';
 import 'reportes_page.dart';
 import 'login_page.dart';
-import 'rebastecimiento_page.dart';
 import 'caja_page.dart';
 
 class HomePage extends StatefulWidget {
@@ -61,7 +59,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'title': 'Ventas',
         'icon': Icons.point_of_sale,
-        'page': CobroPage(),
+        'page': const CobroPage(),
         'color': primaryBlue,
         'description': 'Gestionar ventas y pagos',
         'gradient': [accentBlue, primaryBlue]
@@ -69,7 +67,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'title': 'Inventario',
         'icon': Icons.medication_liquid,
-        'page': InventarioPage(),
+        'page': const InventarioPage(),
         'color': secondaryBlue,
         'description': 'Control de medicamentos',
         'gradient': [secondaryBlue, primaryBlue]
@@ -77,7 +75,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'title': 'Personal',
         'icon': Icons.people_alt_rounded,
-        'page': UsuariosPage(),
+        'page': const UsuariosPage(),
         'color': primaryBlue,
         'description': 'Administrar empleados',
         'gradient': [accentBlue, secondaryBlue]
@@ -85,7 +83,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'title': 'Caja',
         'icon': Icons.account_balance_rounded,
-        'page': CajaPage(),
+        'page': const CajaPage(),
         'color': secondaryBlue,
         'description': 'Control financiero',
         'gradient': [secondaryBlue, primaryBlue]
@@ -93,7 +91,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
       {
         'title': 'Reportes',
         'icon': Icons.analytics,
-        'page': ReportesPage(),
+        'page': const ReportesPage(),
         'color': secondaryBlue,
         'description': 'Generar reportes',
         'gradient': [secondaryBlue, primaryBlue]
@@ -163,7 +161,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                 expandedHeight: 0,
                 backgroundColor: primaryBlue,
                 flexibleSpace: FlexibleSpaceBar(
-                  titlePadding: EdgeInsets.only(left: 16.0, bottom: 12.0),
+                  titlePadding: const EdgeInsets.only(left: 16.0, bottom: 12.0),
                   title: Row(
                     children: [
                       Text(
@@ -174,9 +172,9 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
                           fontWeight: FontWeight.w600,
                         ),
                       ),
-                      Spacer(),
+                      const Spacer(),
                       IconButton(
-                        icon: Icon(Icons.logout_rounded, color: white),
+                        icon: const Icon(Icons.logout_rounded, color: white),
                         onPressed: () async {
                           final shouldLogout = await _showLogoutConfirmationDialog(context);
                           if (shouldLogout) {
@@ -410,7 +408,7 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
     await prefs.clear();
     Navigator.pushReplacement(
       context,
-      MaterialPageRoute(builder: (context) => LoginPage()),
+      MaterialPageRoute(builder: (context) => const LoginPage()),
     );
   }
 }

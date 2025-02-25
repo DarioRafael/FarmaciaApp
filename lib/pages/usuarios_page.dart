@@ -100,7 +100,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión')),
+        const SnackBar(content: Text('Error de conexión')),
       );
       print('Error de conexión al cambiar estado del usuario: $e');
     }
@@ -115,7 +115,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
 
       if (response.statusCode == 200) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Usuario eliminado permanentemente')),
+          const SnackBar(content: Text('Usuario eliminado permanentemente')),
         );
         _cargarUsuarios();
       } else {
@@ -127,7 +127,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
       }
     } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error de conexión')),
+        const SnackBar(content: Text('Error de conexión')),
       );
       print('Error de conexión al eliminar usuario: $e');
     }
@@ -144,7 +144,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () {
@@ -153,7 +153,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
               var id = usuario['id']; // Asegúrate de que 'id' es el campo correcto
               if (id == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ID del usuario no encontrado')),
+                  const SnackBar(content: Text('Error: ID del usuario no encontrado')),
                 );
                 print('Error: ID del usuario no encontrado en: $usuario');
                 return;
@@ -174,7 +174,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Eliminar Permanentemente'),
+        title: const Text('Eliminar Permanentemente'),
         content: Text(
             '¿Estás seguro de que deseas eliminar permanentemente a ${usuario['nombre']}?\n\n'
                 'Esta acción no se puede deshacer.'
@@ -182,7 +182,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
+            child: const Text('Cancelar'),
           ),
           TextButton(
             onPressed: () {
@@ -190,14 +190,14 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
               var id = usuario['id']; // Asegúrate de que 'id' es el campo correcto
               if (id == null) {
                 ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Error: ID del usuario no encontrado')),
+                  const SnackBar(content: Text('Error: ID del usuario no encontrado')),
                 );
                 print('Error: ID del usuario no encontrado en: $usuario');
                 return;
               }
               _eliminarUsuario(id);
             },
-            child: Text(
+            child: const Text(
               'Eliminar Permanentemente',
               style: TextStyle(color: Colors.red),
             ),
@@ -218,7 +218,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
     await showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text('Agregar Nuevo Usuario'),
+        title: const Text('Agregar Nuevo Usuario'),
         content: Form(
           key: formKey,
           child: SingleChildScrollView(
@@ -227,30 +227,31 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
               children: [
                 TextFormField(
                   controller: nombreController,
-                  decoration: InputDecoration(labelText: 'Nombre'),
+                  decoration: const InputDecoration(labelText: 'Nombre'),
                   validator: (value) =>
                   value?.isEmpty ?? true ? 'Campo requerido' : null,
                 ),
                 TextFormField(
                   controller: correoController,
-                  decoration: InputDecoration(labelText: 'Correo electrónico'),
+                  decoration: const InputDecoration(labelText: 'Correo electrónico'),
                   validator: (value) {
                     if (value?.isEmpty ?? true) return 'Campo requerido';
-                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value!))
+                    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(value!)) {
                       return 'Correo inválido';
+                    }
                     return null;
                   },
                 ),//
                 TextFormField(
                   controller: passwordController,
-                  decoration: InputDecoration(labelText: 'Contraseña'),
+                  decoration: const InputDecoration(labelText: 'Contraseña'),
                   obscureText: true,
                   validator: (value) =>
                   value?.isEmpty ?? true ? 'Campo requerido' : null,
                 ),
                 DropdownButtonFormField<String>(
                   value: rolSeleccionado,
-                  decoration: InputDecoration(labelText: 'Rol'),
+                  decoration: const InputDecoration(labelText: 'Rol'),
                   items: ['propietario', 'supervisor','empleado'].map((String value) {
                     return DropdownMenuItem<String>(
                       value: value,
@@ -269,7 +270,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
-            child: Text('Cancelar'),
+            child: const Text('Cancelar'),
           ),
           ElevatedButton(
             onPressed: () async {
@@ -289,7 +290,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
 
                   if (response.statusCode == 201) {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Usuario agregado con éxito')),
+                      const SnackBar(content: Text('Usuario agregado con éxito')),
                     );
                     _cargarUsuarios();
                   } else {
@@ -301,7 +302,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                   }
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
-                    SnackBar(content: Text('Error de conexión')),
+                    const SnackBar(content: Text('Error de conexión')),
                   );
                   print('Error de conexión al agregar usuario: $e');
                 } finally {
@@ -310,7 +311,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                 }
               }
             },
-            child: Text('Agregar'),
+            child: const Text('Agregar'),
           ),
         ],
       ),
@@ -379,12 +380,12 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
             children: [
               if (esActivoUsuario)
                 IconButton(
-                  icon: Icon(Icons.person_off_outlined, color: Colors.red),
+                  icon: const Icon(Icons.person_off_outlined, color: Colors.red),
                   onPressed: () => _mostrarDialogoCambiarEstado(usuario, 'inactivo'),
                 ),
               if (!esActivoUsuario) ...[
                 IconButton(
-                  icon: Icon(Icons.person_add_outlined, color: Colors.green),
+                  icon: const Icon(Icons.person_add_outlined, color: Colors.green),
                   onPressed: () => _mostrarDialogoCambiarEstado(usuario, 'activo'),
                 ),
                 IconButton(
@@ -411,7 +412,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
             flexibleSpace: FlexibleSpaceBar(
               title: Text(
                 usuario['nombre'],
-                style: TextStyle(
+                style: const TextStyle(
                   color: Colors.white,
                   fontSize: 16,
                   fontWeight: FontWeight.bold,
@@ -443,7 +444,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                           backgroundColor: Colors.white.withOpacity(0.3),
                           child: Text(
                             usuario['nombre'][0].toUpperCase(),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 48,
                               color: Colors.white,
                               fontWeight: FontWeight.bold,
@@ -451,10 +452,10 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                           ),
                         ),
                       ),
-                      SizedBox(height: 16),
+                      const SizedBox(height: 16),
                       Text(
                         usuario['correo'],
-                        style: TextStyle(
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 16,
                         ),
@@ -468,7 +469,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
           SliverList(
             delegate: SliverChildListDelegate([
               Card(
-                margin: EdgeInsets.all(16),
+                margin: const EdgeInsets.all(16),
                 elevation: 4,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
@@ -486,7 +487,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                             ? Colors.blue
                             : Colors.green,
                       ),
-                      Divider(),
+                      const Divider(),
                       _buildDetailRow(
                         icon: esActivoUsuario
                             ? Icons.check_circle
@@ -536,7 +537,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
                   ],
                 ),
               ),
-              SizedBox(height: 32),
+              const SizedBox(height: 32),
             ]),
           ),
         ],
@@ -556,7 +557,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
       child: Row(
         children: [
           Icon(icon, color: color, size: 28),
-          SizedBox(width: 16),
+          const SizedBox(width: 16),
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -598,7 +599,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
         ),
-        padding: EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       ),
       onPressed: onPressed,
     );
@@ -616,7 +617,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
           indicatorColor: Theme.of(context).colorScheme.primary,
           labelColor: Theme.of(context).colorScheme.primary,
           unselectedLabelColor: Colors.grey,
-          tabs: [
+          tabs: const [
             Tab(
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -641,7 +642,7 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
         ),
         actions: [
           IconButton(
-            icon: Icon(Icons.refresh_outlined),
+            icon: const Icon(Icons.refresh_outlined),
             onPressed: _cargarUsuarios,
             tooltip: 'Recargar usuarios',
           ),
@@ -649,8 +650,8 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
       ),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _mostrarDialogoAgregarUsuario,
-        icon: Icon(Icons.add_outlined),
-        label: Text('Agregar Usuario'),
+        icon: const Icon(Icons.add_outlined),
+        label: const Text('Agregar Usuario'),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Theme.of(context).colorScheme.onPrimary,
       ),
@@ -667,8 +668,8 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(Icons.error_outline, size: 64, color: Colors.red),
-              SizedBox(height: 16),
+              const Icon(Icons.error_outline, size: 64, color: Colors.red),
+              const SizedBox(height: 16),
               Text(_error!, style: Theme.of(context).textTheme.titleMedium),
             ],
           )
@@ -677,23 +678,23 @@ class _UsuariosPageState extends State<UsuariosPage> with SingleTickerProviderSt
         controller: _tabController,
         children: [
           _usuariosActivos.isEmpty
-              ? _EmptyStateWidget(
+              ? const _EmptyStateWidget(
             icon: Icons.people_alt_outlined,
             mensaje: 'No hay usuarios activos',
           )
               : ListView.builder(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             itemCount: _usuariosActivos.length,
             itemBuilder: (context, index) =>
                 _buildUsuarioCard(_usuariosActivos[index], 'activo', esActivo: true),
           ),
           _usuariosInactivos.isEmpty
-              ? _EmptyStateWidget(
+              ? const _EmptyStateWidget(
             icon: Icons.people_outline,
             mensaje: 'No hay usuarios inactivos',
           )
               : ListView.builder(
-            padding: EdgeInsets.all(8),
+            padding: const EdgeInsets.all(8),
             itemCount: _usuariosInactivos.length,
             itemBuilder: (context, index) =>
                 _buildUsuarioCard(_usuariosInactivos[index], 'inactivo', esActivo: false),
@@ -724,7 +725,7 @@ class _EmptyStateWidget extends StatelessWidget {
               size: 100,
               color: Colors.grey.shade300
           ),
-          SizedBox(height: 16),
+          const SizedBox(height: 16),
           Text(
               mensaje,
               style: Theme.of(context).textTheme.titleMedium?.copyWith(

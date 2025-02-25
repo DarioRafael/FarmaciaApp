@@ -4,7 +4,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class CajaPage extends StatefulWidget {
-  const CajaPage({Key? key}) : super(key: key);
+  const CajaPage({super.key});
 
   @override
   State<CajaPage> createState() => _CajaPageState();
@@ -30,8 +30,8 @@ class _CajaPageState extends State<CajaPage> {
   }
 
   Future<void> _fetchSaldo() async {
-    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-    final String saldoEndpoint = '/saldo';
+    const String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    const String saldoEndpoint = '/saldo';
 
     try {
       final response = await http.get(Uri.parse('$baseUrl$saldoEndpoint'));
@@ -68,8 +68,8 @@ class _CajaPageState extends State<CajaPage> {
   }
 
   Future<void> _fetchTransactions() async {
-    final String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-    final String transactionsEndpoint = '/transacciones';
+    const String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    const String transactionsEndpoint = '/transacciones';
 
     try {
       final response = await http.get(Uri.parse('$baseUrl$transactionsEndpoint'));
@@ -187,7 +187,7 @@ class _CajaPageState extends State<CajaPage> {
                 ),
                 ...recentTransactions.map((transaction) =>
                     _TransactionCard(transaction: transaction)
-                ).toList(),
+                ),
               ],
             ),
           ),
@@ -229,7 +229,7 @@ class _CajaPageState extends State<CajaPage> {
     transactions.sort((a, b) => b.date.compareTo(a.date));
 
     // Número de transacciones a mostrar inicialmente
-    final int initialTransactionsToShow = 10;
+    const int initialTransactionsToShow = 10;
 
     return Container(
       decoration: BoxDecoration(
@@ -336,7 +336,7 @@ class _CajaPageState extends State<CajaPage> {
           minChildSize: 0.5,
           maxChildSize: 0.95,
           builder: (_, controller) => Container(
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
             ),
@@ -349,7 +349,7 @@ class _CajaPageState extends State<CajaPage> {
                     children: [
                       Text(
                         '$title (${transactions.length})',
-                        style: TextStyle(
+                        style: const TextStyle(
                           fontSize: 18,
                           fontWeight: FontWeight.bold,
                         ),

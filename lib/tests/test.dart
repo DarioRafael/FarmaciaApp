@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class InventarioPage extends StatefulWidget {
-  const InventarioPage({Key? key}) : super(key: key);
+  const InventarioPage({super.key});
 
   @override
   _InventarioPageState createState() => _InventarioPageState();
