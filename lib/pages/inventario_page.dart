@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'dart:math';
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:intl/intl.dart';
 
 class InventarioPage extends StatefulWidget {
   const InventarioPage({Key? key}) : super(key: key);
@@ -11,175 +14,29 @@ class InventarioPage extends StatefulWidget {
 class _InventarioPageState extends State<InventarioPage> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedFilter = 'Todos';
+  List<Map<String, dynamic>> _productos = [];
   List<String> _filterOptions = ['Todos'];
   List<bool> _selectedInventories = List.generate(11, (_) => true);
-  double stockWidth = 50.0; // Define stockWidth with a default value
-  final List<Map<String, dynamic>> _productos = [
-    {
-      'id': 1,
-      'nombre': 'Paracetamol 500mg',
-      'stock': 100,
-      'precio': 15.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 2,
-      'nombre': 'Ibuprofeno 400mg',
-      'stock': 85,
-      'precio': 18.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 3,
-      'nombre': 'Omeprazol 20mg',
-      'stock': 70,
-      'precio': 25.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 4,
-      'nombre': 'Loratadina 10mg',
-      'stock': 90,
-      'precio': 12.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 5,
-      'nombre': 'Aspirina 500mg',
-      'stock': 120,
-      'precio': 10.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 6,
-      'nombre': 'Amoxicilina 500mg',
-      'stock': 60,
-      'precio': 35.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 7,
-      'nombre': 'Cetirizina 10mg',
-      'stock': 75,
-      'precio': 15.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 8,
-      'nombre': 'Naproxeno 250mg',
-      'stock': 80,
-      'precio': 20.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 9,
-      'nombre': 'Ranitidina 150mg',
-      'stock': 65,
-      'precio': 22.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 10,
-      'nombre': 'Metformina 850mg',
-      'stock': 55,
-      'precio': 28.0,
-      'categoria': 'Tabletas',
-      'color': Color(0xFFE3F2FD)
-    },
-    {
-      'id': 11,
-      'nombre': 'Jarabe para la Tos',
-      'stock': 45,
-      'precio': 45.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 12,
-      'nombre': 'Suspensión Pediátrica',
-      'stock': 40,
-      'precio': 38.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 13,
-      'nombre': 'Antiacido Oral',
-      'stock': 50,
-      'precio': 30.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 14,
-      'nombre': 'Vitamina C Líquida',
-      'stock': 60,
-      'precio': 42.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 15,
-      'nombre': 'Hierro Líquido',
-      'stock': 35,
-      'precio': 48.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 16,
-      'nombre': 'Multivitamínico Líquido',
-      'stock': 40,
-      'precio': 55.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 17,
-      'nombre': 'Zinc Líquido',
-      'stock': 30,
-      'precio': 40.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 18,
-      'nombre': 'Calcio Líquido',
-      'stock': 45,
-      'precio': 52.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 19,
-      'nombre': 'Probiótico Líquido',
-      'stock': 25,
-      'precio': 65.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-    {
-      'id': 20,
-      'nombre': 'Magnesio Líquido',
-      'stock': 35,
-      'precio': 58.0,
-      'categoria': 'Bebibles',
-      'color': Color(0xFFF3E5F5)
-    },
-  ];
+
 
   List<Map<String, dynamic>> _filteredProducts = [];
   List<List<Map<String, dynamic>>> _allInventories = [];
   List<List<Map<String, dynamic>>> _filteredInventories = [];
+
+// Column width definitions
+  double idWidth = 60.0;
+  double nombreGenericoWidth = 200.0;
+  double nombreMedicoWidth = 200.0;
+  double fabricanteWidth = 150.0;
+  double contenidoWidth = 120.0;
+  double formaWidth = 120.0;
+  double fechaFabWidth = 120.0;
+  double presentacionWidth = 150.0;
+  double fechaCadWidth = 120.0;
+  double unidadesWidth = 80.0;
+  double precioWidth = 80.0;
+  double stockWidth = 80.0;
+  double actionsWidth = 60.0;
 
 
   final Color primaryBlue = Color(0xFF1A237E); // Dark blue
@@ -188,28 +45,79 @@ class _InventarioPageState extends State<InventarioPage> {
   final Color white = Colors.white;
   final Color tableHeaderColor = Color(0xFFE3F2FD); // Very light blue
 
+  final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_filterProducts);
-    _loadCategorias();
-    _filterProducts();
-    _initializeAllInventories();
-
+    _loadProductsFromApi();
   }
+
+  Future<void> _loadProductsFromApi() async {
+    setState(() {});
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _productos = data.map((item) {
+            // Assign a color based on forma farmaceutica
+            Color itemColor = Color(0xFFE3F2FD); // Default light blue
+            if (item['FormaFarmaceutica'] == 'Tabletas') {
+              itemColor = Color(0xFFE3F2FD);
+            } else if (item['FormaFarmaceutica'] == 'Bebibles' ||
+                item['FormaFarmaceutica'] == 'Jarabe' ||
+                item['FormaFarmaceutica'] == 'Suspensión') {
+              itemColor = Color(0xFFF3E5F5);
+            }
+
+            return {
+              'id': item['ID'],
+              'nombre': item['NombreGenerico'],
+              'nombreMedico': item['NombreMedico'],
+              'fabricante': item['Fabricante'],
+              'contenido': item['Contenido'],
+              'categoria': item['FormaFarmaceutica'],
+              'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
+              'presentacion': item['Presentacion'],
+              'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
+              'unidadesPorCaja': item['UnidadesPorCaja'],
+              'precio': item['Precio'].toDouble(),
+              'stock': item['UnidadesPorCaja'],
+              'color': itemColor,
+            };
+          }).toList();
+
+          _loadCategorias();
+          _filterProducts();
+          _initializeAllInventories();
+        });
+      } else {
+        throw Exception('Failed to load products');
+      }
+    } catch (e) {
+      setState(() {});
+      _showErrorDialog('Error al cargar datos: $e');
+    }
+  }
+
   void _initializeAllInventories() {
     final random = Random();
     _allInventories = List.generate(10, (_) {
       return _productos.map((producto) {
         return {
           ...producto,
-          'stock': random.nextInt(100) + 1, // Genera un stock aleatorio entre 1 y 100
+          'stock': random.nextInt(100) + 1,
+          // Genera un stock aleatorio entre 1 y 100
         };
       }).toList();
     });
     _filteredInventories = List.from(_allInventories);
   }
+
 //ss
   void _loadCategorias() {
     final Set<String> categoriasUnicas = {
@@ -228,10 +136,9 @@ class _InventarioPageState extends State<InventarioPage> {
     // Función de filtrado que se puede reutilizar
     bool filterCondition(Map<String, dynamic> product) {
       final matchesQuery =
-          product['nombre'].toString().toLowerCase().contains(query) ||
-              product['categoria'].toString().toLowerCase().contains(query) ||
-              product['precio'].toString().contains(query) ||
-              product['stock'].toString().contains(query);
+          product['id'].toString().toLowerCase().contains(query) ||
+              product['nombre'].toString().toLowerCase().contains(query) ||
+              product['nombreMedico'].toString().toLowerCase().contains(query);
 
       final matchesCategory = _selectedFilter == 'Todos' ||
           product['categoria'] == _selectedFilter;
@@ -253,6 +160,8 @@ class _InventarioPageState extends State<InventarioPage> {
       _sortAllInventories();
     });
   }
+
+
   void _sortProducts() {
     _filteredProducts.sort((a, b) {
       int nameComparison = a['nombre'].compareTo(b['nombre']);
@@ -301,40 +210,6 @@ class _InventarioPageState extends State<InventarioPage> {
     });
   }
 
-  void _actualizarProducto(Map<String, dynamic> producto, String nombre,
-      String categoria, String precio, String stock) {
-    setState(() {
-      producto['nombre'] = nombre;
-      producto['categoria'] = categoria;
-      producto['precio'] = double.parse(precio);
-      producto['stock'] = int.parse(stock);
-      _filterProducts();
-    });
-  }
-
-  void _agregarProducto(String nombre, String categoria, String precio,
-      String stock) {
-    final productoExistente = _productos.any(
-            (p) => p['nombre'].toLowerCase() == nombre.toLowerCase());
-
-    if (productoExistente) {
-      _showErrorDialog('Ya existe un producto con este nombre');
-      return;
-    }
-
-    setState(() {
-      _productos.add({
-        'id': _productos.length + 1,
-        'nombre': nombre,
-        'categoria': categoria,
-        'precio': double.parse(precio),
-        'stock': int.parse(stock),
-        'color': categoria == 'Tabletas' ? Color(0xFFE3F2FD) : Color(
-            0xFFF3E5F5),
-      });
-      _filterProducts();
-    });
-  }
 
   void _showErrorDialog(String message) {
     showDialog(
@@ -352,13 +227,14 @@ class _InventarioPageState extends State<InventarioPage> {
           ),
     );
   }
+
   void _mostrarFormularioEditarProducto(Map<String, dynamic> producto) {
     final TextEditingController nombreController = TextEditingController(
-        text: producto['nombre']);
-    final TextEditingController categoriaController = TextEditingController(
-        text: producto['categoria']);
+        text: producto['nombre']
+    );
     final TextEditingController precioController = TextEditingController(
-        text: producto['precio'].toString());
+        text: producto['precio'].toString()
+    );
 
     showDialog(
       context: context,
@@ -373,13 +249,9 @@ class _InventarioPageState extends State<InventarioPage> {
                   decoration: const InputDecoration(labelText: 'Nombre'),
                 ),
                 TextField(
-                  controller: categoriaController,
-                  decoration: const InputDecoration(labelText: 'Categoría'),
-                ),
-                TextField(
                   controller: precioController,
                   decoration: const InputDecoration(labelText: 'Precio'),
-                  keyboardType: TextInputType.number,
+                  keyboardType: TextInputType.numberWithOptions(decimal: true),
                 ),
               ],
             ),
@@ -389,14 +261,11 @@ class _InventarioPageState extends State<InventarioPage> {
                 child: const Text('Cancelar'),
               ),
               TextButton(
-                onPressed: () {
-                  _actualizarProducto(
-                    producto,
+                onPressed: () async {
+                  await _actualizarProducto(
+                    producto['id'],
                     nombreController.text,
-                    categoriaController.text,
-                    precioController.text,
-                    producto['stock']
-                        .toString(), // Add the missing stock argument
+                    double.parse(precioController.text),
                   );
                   Navigator.pop(context);
                 },
@@ -405,6 +274,41 @@ class _InventarioPageState extends State<InventarioPage> {
             ],
           ),
     );
+  }
+
+  Future<void> _actualizarProducto(int id, String nombre, double precio) async {
+    try {
+      final response = await http.put(
+        Uri.parse('$apiUrl/$id'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'NombreGenerico': nombre,
+          'Precio': precio,
+        }),
+      );
+
+      if (response.statusCode == 200) {
+        // Actualizar el producto localmente
+        setState(() {
+          final index = _productos.indexWhere((p) => p['id'] == id);
+          if (index != -1) {
+            _productos[index]['nombre'] = nombre;
+            _productos[index]['precio'] = precio;
+            _filterProducts();
+          }
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Producto actualizado correctamente'))
+        );
+      } else {
+        throw Exception('Error al actualizar el producto');
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Error: No se pudo actualizar el producto'))
+      );
+    }
   }
 
   void _mostrarDialogoEliminar(Map<String, dynamic> producto) {
@@ -435,55 +339,59 @@ class _InventarioPageState extends State<InventarioPage> {
   void _mostrarFormularioReabastecerProducto(Map<String, dynamic> producto) {
     final TextEditingController stockController = TextEditingController();
     final random = Random();
-    final restockCost = random.nextDouble() * 100; // Generate a random cost between 0 and 100
+    final restockCost = random.nextDouble() *
+        100; // Generate a random cost between 0 and 100
 
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Reabastecer Producto'),
-        content: StatefulBuilder(
-          builder: (context, setState) {
-            double totalCost = 0;
-            if (stockController.text.isNotEmpty) {
-              totalCost = restockCost * int.parse(stockController.text);
-            }
+      builder: (context) =>
+          AlertDialog(
+            title: const Text('Reabastecer Producto'),
+            content: StatefulBuilder(
+              builder: (context, setState) {
+                double totalCost = 0;
+                if (stockController.text.isNotEmpty) {
+                  totalCost = restockCost * int.parse(stockController.text);
+                }
 
-            return Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text('Stock actual: ${producto['stock']}'),
-                TextField(
-                  controller: stockController,
-                  decoration: const InputDecoration(labelText: 'Cantidad a reabastecer'),
-                  keyboardType: TextInputType.number,
-                  onChanged: (value) {
-                    setState(() {
-                      totalCost = restockCost * (int.tryParse(value) ?? 0);
-                    });
-                  },
-                ),
-                const SizedBox(height: 8),
-                Text('Costo por unidad: \$${restockCost.toStringAsFixed(2)}'),
-                const SizedBox(height: 8),
-                Text('Costo total: \$${totalCost.toStringAsFixed(2)}'),
-              ],
-            );
-          },
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('Cancelar'),
+                return Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text('Stock actual: ${producto['stock']}'),
+                    TextField(
+                      controller: stockController,
+                      decoration: const InputDecoration(
+                          labelText: 'Cantidad a reabastecer'),
+                      keyboardType: TextInputType.number,
+                      onChanged: (value) {
+                        setState(() {
+                          totalCost = restockCost * (int.tryParse(value) ?? 0);
+                        });
+                      },
+                    ),
+                    const SizedBox(height: 8),
+                    Text('Costo por unidad: \$${restockCost.toStringAsFixed(
+                        2)}'),
+                    const SizedBox(height: 8),
+                    Text('Costo total: \$${totalCost.toStringAsFixed(2)}'),
+                  ],
+                );
+              },
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancelar'),
+              ),
+              TextButton(
+                onPressed: () {
+                  _reabastecerProducto(producto, stockController.text);
+                  Navigator.pop(context);
+                },
+                child: const Text('Reabastecer'),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () {
-              _reabastecerProducto(producto, stockController.text);
-              Navigator.pop(context);
-            },
-            child: const Text('Reabastecer'),
-          ),
-        ],
-      ),
     );
   }
 
@@ -536,6 +444,7 @@ class _InventarioPageState extends State<InventarioPage> {
 
         views.add(
           SingleChildScrollView(
+            scrollDirection: Axis.vertical,
             child: Padding(
               padding: EdgeInsets.all(16.0),
               child: _buildProductTablesByCategory(inventoryData, isSmallScreen),
@@ -578,6 +487,8 @@ class _InventarioPageState extends State<InventarioPage> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: groupedProducts.entries.map((entry) {
+        ScrollController scrollController = ScrollController();
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -592,17 +503,50 @@ class _InventarioPageState extends State<InventarioPage> {
                 ),
               ),
             ),
-            _buildProductTable(entry.value, isSmallScreen),
+            Scrollbar(
+              controller: scrollController,
+              thumbVisibility: true,
+              trackVisibility: true,
+              thickness: 8,
+              radius: Radius.circular(4),
+              child: SingleChildScrollView(
+                controller: scrollController,
+                scrollDirection: Axis.horizontal,
+                child: _buildProductTable(entry.value, isSmallScreen),
+              ),
+            ),
             const SizedBox(height: 20),
           ],
         );
       }).toList(),
     );
   }
+
+  @override
   @override
   Widget build(BuildContext context) {
-    final screenWidth = MediaQuery.of(context).size.width;
+    final screenWidth = MediaQuery
+        .of(context)
+        .size
+        .width;
     final isSmallScreen = screenWidth < 600;
+
+    // Adjust column widths for small screens
+    if (isSmallScreen) {
+      idWidth = 40.0;
+      nombreGenericoWidth = 120.0;
+      nombreMedicoWidth = 120.0;
+      fabricanteWidth = 100.0;
+      contenidoWidth = 80.0;
+      formaWidth = 80.0;
+      fechaFabWidth = 80.0;
+      presentacionWidth = 100.0;
+      fechaCadWidth = 80.0;
+      unidadesWidth = 60.0;
+      precioWidth = 60.0;
+      stockWidth = 60.0;
+      actionsWidth = 40.0;
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -634,38 +578,44 @@ class _InventarioPageState extends State<InventarioPage> {
                 ),
               ],
             ),
-            itemBuilder: (BuildContext context) => List.generate(
-              _selectedInventories.length,
-                  (index) => PopupMenuItem<void>(
-                child: StatefulBuilder(
-                  builder: (BuildContext context, StateSetter setState) {
-                    return CheckboxListTile(
-                      title: Text(
-                        index == 0 ? 'Inventario Local' : 'Sucursal $index',
-                        style: TextStyle(color: primaryBlue),
+            itemBuilder: (BuildContext context) =>
+                List.generate(
+                  _selectedInventories.length,
+                      (index) =>
+                      PopupMenuItem<void>(
+                        child: StatefulBuilder(
+                          builder: (BuildContext context,
+                              StateSetter setState) {
+                            return CheckboxListTile(
+                              title: Text(
+                                index == 0
+                                    ? 'Inventario Local'
+                                    : 'Sucursal $index',
+                                style: TextStyle(color: primaryBlue),
+                              ),
+                              value: _selectedInventories[index],
+                              activeColor: secondaryBlue,
+                              onChanged: (bool? value) {
+                                setState(() {
+                                  _selectedInventories[index] = value!;
+                                  if (!_selectedInventories.contains(true)) {
+                                    _selectedInventories[0] = true;
+                                  }
+                                });
+                                this.setState(() {
+                                  _filterProducts();
+                                });
+                              },
+                            );
+                          },
+                        ),
                       ),
-                      value: _selectedInventories[index],
-                      activeColor: secondaryBlue,
-                      onChanged: (bool? value) {
-                        setState(() {
-                          _selectedInventories[index] = value!;
-                          if (!_selectedInventories.contains(true)) {
-                            _selectedInventories[0] = true;
-                          }
-                          _filterProducts();
-                        });
-                      },
-                    );
-                  },
                 ),
-              ),
-            ),
           ),
           IconButton(
             icon: Icon(Icons.refresh, color: white),
             onPressed: () {
-              _loadCategorias();
-              _filterProducts();
+              _loadProductsFromApi();
             },
           ),
         ],
@@ -682,15 +632,16 @@ class _InventarioPageState extends State<InventarioPage> {
                 _buildSearchField(),
                 const SizedBox(height: 8),
                 _buildFilterDropdown(),
-              ] else ...[
-                Row(
-                  children: [
-                    Expanded(child: _buildSearchField()),
-                    const SizedBox(width: 16),
-                    _buildFilterDropdown(),
-                  ],
-                ),
-              ],
+              ] else
+                ...[
+                  Row(
+                    children: [
+                      Expanded(child: _buildSearchField()),
+                      const SizedBox(width: 16),
+                      _buildFilterDropdown(),
+                    ],
+                  ),
+                ],
               const SizedBox(height: 20),
               Expanded(
                 child: Card(
@@ -699,7 +650,9 @@ class _InventarioPageState extends State<InventarioPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: DefaultTabController(
-                    length: _selectedInventories.where((selected) => selected).length,
+                    length: _selectedInventories
+                        .where((selected) => selected)
+                        .length,
                     child: Column(
                       children: [
                         Container(
@@ -804,28 +757,164 @@ class _InventarioPageState extends State<InventarioPage> {
     );
   }
 
-  DataTable _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen) {
-    double productWidth = isSmallScreen ? 100 : 200;
-    double priceWidth = isSmallScreen ? 50 : 100;
+  String _formatDate(DateTime date) {
+    return DateFormat('dd/MM/yyyy').format(date);
+  }
 
+  DataTable _buildProductTable(List<Map<String, dynamic>> products,
+      bool isSmallScreen) {
     return DataTable(
       headingRowColor: MaterialStateProperty.all(tableHeaderColor),
       dataRowColor: MaterialStateProperty.all(white),
-      columnSpacing: isSmallScreen ? 20 : 56.0,
-      horizontalMargin: isSmallScreen ? 12 : 24.0,
+      columnSpacing: isSmallScreen ? 12 : 24.0,
+      horizontalMargin: isSmallScreen ? 8 : 16.0,
       columns: [
         DataColumn(
           label: SizedBox(
-            width: productWidth,
+            width: idWidth,
             child: Text(
-              'Producto',
+              'ID',
               style: TextStyle(
-                fontSize: isSmallScreen ? 14 : 16,
+                fontSize: isSmallScreen ? 12 : 14,
                 fontWeight: FontWeight.bold,
                 color: primaryBlue,
               ),
             ),
           ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: nombreGenericoWidth,
+            child: Text(
+              'Nombre Genérico',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: nombreMedicoWidth,
+            child: Text(
+              'Nombre Médico',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: fabricanteWidth,
+            child: Text(
+              'Fabricante',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: contenidoWidth,
+            child: Text(
+              'Contenido',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: formaWidth,
+            child: Text(
+              'Forma',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: fechaFabWidth,
+            child: Text(
+              'Fabricación',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: presentacionWidth,
+            child: Text(
+              'Presentación',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: fechaCadWidth,
+            child: Text(
+              'Caducidad',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+            ),
+          ),
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: unidadesWidth,
+            child: Text(
+              'Unid/Caja',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          numeric: true,
+        ),
+        DataColumn(
+          label: SizedBox(
+            width: precioWidth,
+            child: Text(
+              'Precio',
+              style: TextStyle(
+                fontSize: isSmallScreen ? 12 : 14,
+                fontWeight: FontWeight.bold,
+                color: primaryBlue,
+              ),
+              textAlign: TextAlign.right,
+            ),
+          ),
+          numeric: true,
         ),
         DataColumn(
           label: SizedBox(
@@ -833,7 +922,7 @@ class _InventarioPageState extends State<InventarioPage> {
             child: Text(
               'Stock',
               style: TextStyle(
-                fontSize: isSmallScreen ? 14 : 16,
+                fontSize: isSmallScreen ? 12 : 14,
                 fontWeight: FontWeight.bold,
                 color: primaryBlue,
               ),
@@ -844,124 +933,118 @@ class _InventarioPageState extends State<InventarioPage> {
         ),
         DataColumn(
           label: SizedBox(
-            width: priceWidth,
-            child: Text(
-              'Precio',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 14 : 16,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
-              textAlign: TextAlign.right,
-            ),
-          ),
-          numeric: true,
-        ),
-        const DataColumn(
-          label: SizedBox(
-            width: 48,
+            width: actionsWidth,
             child: Text(''),
           ),
         ),
       ],
-      rows: _buildDataRows(products, isSmallScreen, productWidth, priceWidth),
+      rows: _buildDataRows(products, isSmallScreen),
     );
   }
 
-  List<DataRow> _buildDataRows(List<Map<String, dynamic>> products, bool isSmallScreen, double productWidth, double priceWidth) {
+
+  List<DataRow> _buildDataRows(List<Map<String, dynamic>> products, bool isSmallScreen) {
     return products.map((producto) {
+      final DateTime now = DateTime.now();
+      // Safely convert dates using null check
+      final DateTime fechaCaducidad = producto['fechaCaducidad'] != null
+          ? producto['fechaCaducidad'] is DateTime
+          ? producto['fechaCaducidad']
+          : DateTime.parse(producto['fechaCaducidad'].toString())
+          : DateTime.now();
+
+      final bool isCaducado = fechaCaducidad.isBefore(now);
+      final bool isNearCaducidad = fechaCaducidad.difference(now).inDays < 90;
+
+      final TextStyle caducidadStyle = TextStyle(
+        fontSize: isSmallScreen ? 11 : 13,
+        color: isCaducado ? Colors.red : (isNearCaducidad ? Colors.orange : primaryBlue),
+        fontWeight: isCaducado || isNearCaducidad ? FontWeight.bold : FontWeight.normal,
+      );
+
+      final TextStyle baseStyle = TextStyle(
+        fontSize: isSmallScreen ? 11 : 13,
+        color: primaryBlue,
+      );
+
       return DataRow(
         cells: [
-          DataCell(
-            Container(
-              width: productWidth,
-              child: Text(
-                producto['nombre'],
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 13 : 15,
-                  color: primaryBlue,
-                ),
-                maxLines: null,
-                softWrap: true,
-              ),
-            ),
-          ),
-          DataCell(
-            SizedBox(
-              width: stockWidth,
-              child: Text(
-                producto['stock'].toString(),
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 13 : 15,
-                  color: primaryBlue,
-                ),
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ),
-          DataCell(
-            SizedBox(
-              width: priceWidth,
-              child: Text(
-                '\$${producto['precio'].toStringAsFixed(2)}',
-                style: TextStyle(
-                  fontSize: isSmallScreen ? 13 : 15,
-                  color: primaryBlue,
-                ),
-                textAlign: TextAlign.right,
-              ),
-            ),
-          ),
-          DataCell(
-            SizedBox(
-              width: 48,
-              child: PopupMenuButton<int>(
-                icon: Icon(
-                  Icons.more_vert,
-                  color: secondaryBlue,
-                  size: isSmallScreen ? 20 : 24,
-                ),
-                itemBuilder: (context) => [
-                  PopupMenuItem(
-                    value: 1,
-                    child: ListTile(
-                      leading: Icon(Icons.edit, color: secondaryBlue),
-                      title: Text('Editar', style: TextStyle(color: primaryBlue)),
-                      contentPadding: EdgeInsets.zero,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _mostrarFormularioEditarProducto(producto);
-                      },
-                    ),
+          DataCell(SizedBox(width: idWidth,
+              child: Text(producto['id']?.toString() ?? '', style: baseStyle))),
+          DataCell(SizedBox(width: nombreGenericoWidth,
+              child: Text(producto['nombre']?.toString() ?? '', style: baseStyle,
+                  overflow: TextOverflow.ellipsis))),
+          DataCell(SizedBox(width: nombreMedicoWidth,
+              child: Text(producto['nombreMedico']?.toString() ?? '', style: baseStyle,
+                  overflow: TextOverflow.ellipsis))),
+          DataCell(SizedBox(width: fabricanteWidth,
+              child: Text(producto['fabricante']?.toString() ?? '', style: baseStyle,
+                  overflow: TextOverflow.ellipsis))),
+          DataCell(SizedBox(width: contenidoWidth,
+              child: Text(producto['contenido']?.toString() ?? '', style: baseStyle,
+                  overflow: TextOverflow.ellipsis))),
+          DataCell(SizedBox(width: formaWidth,
+              child: Text(producto['categoria']?.toString() ?? '', style: baseStyle,
+                  overflow: TextOverflow.ellipsis))),
+          DataCell(SizedBox(width: fechaFabWidth,
+              child: Text(producto['fechaFabricacion'] != null ?
+              _formatDate(producto['fechaFabricacion']) : '', style: baseStyle))),
+          DataCell(SizedBox(width: presentacionWidth,
+              child: Text(producto['presentacion']?.toString() ?? '', style: baseStyle,
+                  overflow: TextOverflow.ellipsis))),
+          DataCell(SizedBox(width: fechaCadWidth,
+              child: Text(_formatDate(fechaCaducidad), style: caducidadStyle))),
+          DataCell(SizedBox(width: unidadesWidth,
+              child: Text(producto['unidadesPorCaja']?.toString() ?? '0', style: baseStyle,
+                  textAlign: TextAlign.right))),
+          DataCell(SizedBox(width: precioWidth,
+              child: Text('\$${(producto['precio'] ?? 0).toStringAsFixed(2)}',
+                  style: baseStyle, textAlign: TextAlign.right))),
+          DataCell(SizedBox(width: stockWidth,
+              child: Text(producto['stock']?.toString() ?? '0', style: baseStyle,
+                  textAlign: TextAlign.right))),
+          DataCell(SizedBox(
+            width: actionsWidth,
+            child: PopupMenuButton<String>(
+              icon: Icon(Icons.more_vert, color: secondaryBlue, size: isSmallScreen ? 18 : 24),
+              itemBuilder: (context) => [
+                PopupMenuItem(
+                  value: 'edit',
+                  child: ListTile(
+                    leading: Icon(Icons.edit, color: secondaryBlue),
+                    title: Text('Editar', style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
                   ),
-                  PopupMenuItem(
-                    value: 2,
-                    child: ListTile(
-                      leading: Icon(Icons.delete_outline, color: Colors.red),
-                      title: Text('Eliminar', style: TextStyle(color: primaryBlue)),
-                      contentPadding: EdgeInsets.zero,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _mostrarDialogoEliminar(producto);
-                      },
-                    ),
+                ),
+                PopupMenuItem(
+                  value: 'restock',
+                  child: ListTile(
+                    leading: Icon(Icons.add_shopping_cart, color: secondaryBlue),
+                    title: Text('Reabastecer', style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
                   ),
-                  PopupMenuItem(
-                    value: 3,
-                    child: ListTile(
-                      leading: Icon(Icons.add, color: Colors.green),
-                      title: Text('Reabastecer', style: TextStyle(color: primaryBlue)),
-                      contentPadding: EdgeInsets.zero,
-                      onTap: () {
-                        Navigator.pop(context);
-                        _mostrarFormularioReabastecerProducto(producto);
-                      },
-                    ),
+                ),
+                PopupMenuItem(
+                  value: 'delete',
+                  child: ListTile(
+                    leading: Icon(Icons.delete, color: Colors.red),
+                    title: Text('Eliminar', style: TextStyle(fontSize: isSmallScreen ? 12 : 14)),
                   ),
-                ],
-              ),
+                ),
+              ],
+              onSelected: (value) {
+                switch (value) {
+                  case 'edit':
+                    _mostrarFormularioEditarProducto(producto);
+                    break;
+                  case 'restock':
+                    _mostrarFormularioReabastecerProducto(producto);
+                    break;
+                  case 'delete':
+                    _mostrarDialogoEliminar(producto);
+                    break;
+                }
+              },
             ),
-          ),
+          )),
         ],
       );
     }).toList();

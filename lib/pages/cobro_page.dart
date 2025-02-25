@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:responsive_framework/responsive_framework.dart';
 import 'package:flutter_spinbox/flutter_spinbox.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 
 class CobroPage extends StatefulWidget {
   const CobroPage({super.key});
@@ -26,34 +28,12 @@ class ResponsiveScalingWidget extends StatelessWidget {
 }
 
 class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMixin {
-  final List<Map<String, dynamic>> _productos = [
-    {'id': 1, 'nombre': 'Paracetamol 500mg', 'stock': 100, 'precio': 15.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 2, 'nombre': 'Ibuprofeno 400mg', 'stock': 85, 'precio': 18.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 3, 'nombre': 'Omeprazol 20mg', 'stock': 70, 'precio': 25.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 4, 'nombre': 'Loratadina 10mg', 'stock': 90, 'precio': 12.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 5, 'nombre': 'Aspirina 500mg', 'stock': 120, 'precio': 10.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 6, 'nombre': 'Amoxicilina 500mg', 'stock': 60, 'precio': 35.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 7, 'nombre': 'Cetirizina 10mg', 'stock': 75, 'precio': 15.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 8, 'nombre': 'Naproxeno 250mg', 'stock': 80, 'precio': 20.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 9, 'nombre': 'Ranitidina 150mg', 'stock': 65, 'precio': 22.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 10, 'nombre': 'Metformina 850mg', 'stock': 55, 'precio': 28.0, 'categoria': 'Tabletas', 'color': Color(0xFFE3F2FD), 'image': 'assets/images/tablets.png'},
-    {'id': 11, 'nombre': 'Jarabe para la Tos', 'stock': 45, 'precio': 45.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 12, 'nombre': 'Suspensión Pediátrica', 'stock': 40, 'precio': 38.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 13, 'nombre': 'Antiacido Oral', 'stock': 50, 'precio': 30.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 14, 'nombre': 'Vitamina C Líquida', 'stock': 60, 'precio': 42.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 15, 'nombre': 'Hierro Líquido', 'stock': 35, 'precio': 48.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 16, 'nombre': 'Multivitamínico Líquido', 'stock': 40, 'precio': 55.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 17, 'nombre': 'Zinc Líquido', 'stock': 30, 'precio': 40.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 18, 'nombre': 'Calcio Líquido', 'stock': 45, 'precio': 52.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 19, 'nombre': 'Probiótico Líquido', 'stock': 25, 'precio': 65.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-    {'id': 20, 'nombre': 'Magnesio Líquido', 'stock': 35, 'precio': 58.0, 'categoria': 'Bebibles', 'color': Color(0xFFF3E5F5), 'image': 'assets/images/syrup.png'},
-  ];
-
+  List<Map<String, dynamic>> _productos = [];
   final List<Map<String, dynamic>> _carritos = [];
   int _carritoActivo = -1;
   List<Map<String, dynamic>> _productosFiltrados = [];
   String _query = '';
-  List<String> _categorias = ['Todos', 'Categoría 1', 'Categoría 2'];
+  List<String> _categorias = ['Todos'];
   String _categoriaSeleccionada = 'Todos';
   final TextEditingController _searchController = TextEditingController();
   double availableMoney = 0.0;
@@ -63,6 +43,9 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
   bool _showCartFab = false;
   late AnimationController _fabAnimationController;
   late Animation<double> _fabAnimation;
+
+  // API URL
+  final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
 
 
 
@@ -92,7 +75,6 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     _loadProductos();
     _loadCategorias();
 
-    // Configuración de la animación para el botón flotante
     _fabAnimationController = AnimationController(
       duration: const Duration(milliseconds: 300),
       vsync: this,
@@ -110,12 +92,82 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     super.dispose();
   }
 
-  void _loadProductos() {
+  Future<void> _fetchProductosFromAPI() async {
     setState(() {
-      _productosFiltrados = _productos;
-      _isLoading = false;
+      _isLoading = true;
     });
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> jsonData = json.decode(response.body);
+
+        // Transform API data and sort alphabetically
+        _productos = jsonData.map((medicamento) {
+          return {
+            'nombre': medicamento['NombreMedico'],
+            'nombreGenerico': medicamento['NombreGenerico'],
+            'categoria': _determinarCategoria(medicamento['FormaFarmaceutica']),
+            'precio': medicamento['Precio'],
+            'stock': medicamento['UnidadesPorCaja'],
+            'color': _obtenerColorPorCategoria(medicamento['FormaFarmaceutica']),
+            'fabricante': medicamento['Fabricante'],
+            'contenido': medicamento['Contenido'],
+            'fechaCaducidad': medicamento['FechaCaducidad'],
+          };
+        }).toList()
+          ..sort((a, b) => a['nombre'].toString().compareTo(b['nombre'].toString()));
+
+        // Update filtered products
+        _productosFiltrados = List.from(_productos);
+        _extraerCategorias();
+      } else {
+        _mostrarNotificacion('Error al cargar productos: ${response.statusCode}', isError: true);
+      }
+    } catch (e) {
+      _mostrarNotificacion('Error de conexión: $e', isError: true);
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
+
+// Helper methods
+  String _determinarCategoria(String formaFarmaceutica) {
+    final formaLower = formaFarmaceutica.toLowerCase();
+    if (formaLower.contains('pastilla') || formaLower.contains('tableta') || formaLower.contains('cápsula')) {
+      return 'Tabletas';
+    } else if (formaLower.contains('bebibles') || formaLower.contains('suspensión') || formaLower.contains('líquido')) {
+      return 'Bebibles';
+    } else {
+      return 'Otros';
+    }
+  }
+
+  Color _obtenerColorPorCategoria(String formaFarmaceutica) {
+    final categoria = _determinarCategoria(formaFarmaceutica);
+    if (categoria == 'Tabletas') {
+      return Color(0xFFE3F2FD); // Light blue
+    } else if (categoria == 'Bebibles') {
+      return Color(0xFFE8F5E9); // Light green
+    } else {
+      return Color(0xFFFFF3E0); // Light orange
+    }
+  }
+
+  void _extraerCategorias() {
+    final categoriasSet = _productos.map((p) => p['categoria'] as String).toSet();
+    _categorias = ['Todos', ...categoriasSet];
+  }
+
+
+// Replace the existing _loadProductos and _loadCategorias methods
+  void _loadProductos() {
+    _fetchProductosFromAPI();
+  }
+
 
   void _loadCategorias() {
     setState(() {
@@ -131,8 +183,10 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
       } else {
         _productosFiltrados = _productos.where((producto) {
           final nombreProducto = producto['nombre'].toString().toLowerCase();
+          final nombreGenerico = producto['nombreGenerico'].toString().toLowerCase();
           final categoriaProducto = producto['categoria'] as String;
-          final matchNombre = nombreProducto.contains(_query.toLowerCase());
+          final matchNombre = nombreProducto.contains(_query.toLowerCase()) ||
+              nombreGenerico.contains(_query.toLowerCase());
           final matchCategoria = _categoriaSeleccionada == 'Todos' ||
               categoriaProducto == _categoriaSeleccionada;
           return matchNombre && matchCategoria;
@@ -997,6 +1051,20 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                   ),
                                   SizedBox(height: 4),
                                   Text(
+                                    producto['nombreGenerico'],
+                                    style: _textTheme.bodySmall?.copyWith(
+                                      color: sinStock ? Colors.grey : Colors.grey[600],
+                                      fontStyle: FontStyle.italic,
+                                    ),
+                                  ),
+                                  Text(
+                                    'Contenido: ${producto['contenido']}',
+                                    style: _textTheme.bodySmall?.copyWith(
+                                      color: sinStock ? Colors.grey : Colors.grey[600],
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                  Text(
                                     producto['categoria'],
                                     style: _textTheme.bodySmall?.copyWith(
                                       color: sinStock ? Colors.grey : Colors.grey[600],
@@ -1033,7 +1101,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                         decoration: BoxDecoration(
                                           color: _colorScheme.primaryContainer,
                                           borderRadius: BorderRadius.circular(6),
-                                        ),
+                                        ),//ho
                                         child: Text(
                                           'Stock: ${producto['stock']}',
                                           style: _textTheme.bodySmall?.copyWith(
