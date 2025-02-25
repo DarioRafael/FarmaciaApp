@@ -73,7 +73,7 @@ class _InventarioPageState extends State<InventarioPage> {
                 item['FormaFarmaceutica'] == 'Jarabe' ||
                 item['FormaFarmaceutica'] == 'Suspensión') {
               itemColor = const Color(0xFFF3E5F5);
-            }
+            }//
 
             return {
               'id': item['ID'],
