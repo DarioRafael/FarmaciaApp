@@ -431,6 +431,7 @@ class _InventarioPageState extends State<InventarioPage> {
 
     for (int i = 0; i < _selectedInventories.length; i++) {
       if (_selectedInventories[i]) {
+        final int currentTab = selectedCount; // Store the current tab index
         List<Map<String, dynamic>> inventoryData;
         if (i == 0) {
           inventoryData = _filteredProducts;
@@ -447,7 +448,7 @@ class _InventarioPageState extends State<InventarioPage> {
             scrollDirection: Axis.vertical,
             child: Padding(
               padding: EdgeInsets.all(16.0),
-              child: _buildProductTablesByCategory(inventoryData, isSmallScreen),
+              child: _buildProductTablesByCategory(inventoryData, isSmallScreen, currentTab),
             ),
           ),
         );
@@ -472,10 +473,10 @@ class _InventarioPageState extends State<InventarioPage> {
     return views;
   }
 
-  Widget _buildProductTablesByCategory(List<Map<String, dynamic>> products, bool isSmallScreen) {
+  Widget _buildProductTablesByCategory(List<Map<String, dynamic>> products, bool isSmallScreen, int currentTab) {
     Map<String, List<Map<String, dynamic>>> groupedProducts = {};
 
-    // Agrupar productos por categoría
+    // Group products by category
     for (var product in products) {
       String category = product['categoria'] as String;
       if (!groupedProducts.containsKey(category)) {
@@ -512,7 +513,7 @@ class _InventarioPageState extends State<InventarioPage> {
               child: SingleChildScrollView(
                 controller: scrollController,
                 scrollDirection: Axis.horizontal,
-                child: _buildProductTable(entry.value, isSmallScreen),
+                child: _buildProductTable(entry.value, isSmallScreen, currentTab),
               ),
             ),
             const SizedBox(height: 20),
@@ -522,7 +523,7 @@ class _InventarioPageState extends State<InventarioPage> {
     );
   }
 
-  @override
+
   @override
   Widget build(BuildContext context) {
     final screenWidth = MediaQuery
@@ -761,192 +762,187 @@ class _InventarioPageState extends State<InventarioPage> {
     return DateFormat('dd/MM/yyyy').format(date);
   }
 
-  DataTable _buildProductTable(List<Map<String, dynamic>> products,
-      bool isSmallScreen) {
-    return DataTable(
-      headingRowColor: MaterialStateProperty.all(tableHeaderColor),
-      dataRowColor: MaterialStateProperty.all(white),
-      columnSpacing: isSmallScreen ? 12 : 24.0,
-      horizontalMargin: isSmallScreen ? 8 : 16.0,
-      columns: [
-        DataColumn(
-          label: SizedBox(
-            width: idWidth,
-            child: Text(
-              'ID',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+  DataTable _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen, int currentTab) {
+    // Create columns list
+    List<DataColumn> columns = [
+      DataColumn(
+        label: SizedBox(
+          width: idWidth,
+          child: Text('ID',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: nombreGenericoWidth,
-            child: Text(
-              'Nombre Genérico',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: nombreGenericoWidth,
+          child: Text('Nombre Genérico',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: nombreMedicoWidth,
-            child: Text(
-              'Nombre Médico',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: nombreMedicoWidth,
+          child: Text('Nombre Médico',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: fabricanteWidth,
-            child: Text(
-              'Fabricante',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: fabricanteWidth,
+          child: Text('Fabricante',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: contenidoWidth,
-            child: Text(
-              'Contenido',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: contenidoWidth,
+          child: Text('Contenido',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: formaWidth,
-            child: Text(
-              'Forma',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: formaWidth,
+          child: Text('Forma',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: fechaFabWidth,
-            child: Text(
-              'Fabricación',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: fechaFabWidth,
+          child: Text('Fabricación',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: presentacionWidth,
-            child: Text(
-              'Presentación',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: presentacionWidth,
+          child: Text('Presentación',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: fechaCadWidth,
-            child: Text(
-              'Caducidad',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: fechaCadWidth,
+          child: Text('Caducidad',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
           ),
         ),
-        DataColumn(
-          label: SizedBox(
-            width: unidadesWidth,
-            child: Text(
-              'Unid/Caja',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
-              textAlign: TextAlign.right,
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: unidadesWidth,
+          child: Text('Unid/Caja',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
+            textAlign: TextAlign.right,
           ),
-          numeric: true,
         ),
-        DataColumn(
-          label: SizedBox(
-            width: precioWidth,
-            child: Text(
-              'Precio',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
-              textAlign: TextAlign.right,
+        numeric: true,
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: precioWidth,
+          child: Text('Precio',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
+            textAlign: TextAlign.right,
           ),
-          numeric: true,
         ),
-        DataColumn(
-          label: SizedBox(
-            width: stockWidth,
-            child: Text(
-              'Stock',
-              style: TextStyle(
-                fontSize: isSmallScreen ? 12 : 14,
-                fontWeight: FontWeight.bold,
-                color: primaryBlue,
-              ),
-              textAlign: TextAlign.right,
+        numeric: true,
+      ),
+      DataColumn(
+        label: SizedBox(
+          width: stockWidth,
+          child: Text('Stock',
+            style: TextStyle(
+              fontSize: isSmallScreen ? 12 : 14,
+              fontWeight: FontWeight.bold,
+              color: primaryBlue,
             ),
+            textAlign: TextAlign.right,
           ),
-          numeric: true,
         ),
+        numeric: true,
+      ),
+    ];
+
+    // Only add actions column for local inventory (tab 0)
+    if (currentTab == 0) {
+      columns.add(
         DataColumn(
           label: SizedBox(
             width: actionsWidth,
             child: Text(''),
           ),
         ),
-      ],
-      rows: _buildDataRows(products, isSmallScreen),
+      );
+    }
+
+    return DataTable(
+      headingRowColor: MaterialStateProperty.all(tableHeaderColor),
+      dataRowColor: MaterialStateProperty.all(white),
+      columnSpacing: isSmallScreen ? 12 : 24.0,
+      horizontalMargin: isSmallScreen ? 8 : 16.0,
+      columns: columns,
+      rows: _buildDataRows(products, isSmallScreen, currentTab),
     );
   }
 
 
-  List<DataRow> _buildDataRows(List<Map<String, dynamic>> products, bool isSmallScreen) {
+  List<DataRow> _buildDataRows(List<Map<String, dynamic>> products, bool isSmallScreen, int currentTab) {
     return products.map((producto) {
       final DateTime now = DateTime.now();
-      // Safely convert dates using null check
       final DateTime fechaCaducidad = producto['fechaCaducidad'] != null
           ? producto['fechaCaducidad'] is DateTime
           ? producto['fechaCaducidad']
@@ -967,42 +963,46 @@ class _InventarioPageState extends State<InventarioPage> {
         color: primaryBlue,
       );
 
-      return DataRow(
-        cells: [
-          DataCell(SizedBox(width: idWidth,
-              child: Text(producto['id']?.toString() ?? '', style: baseStyle))),
-          DataCell(SizedBox(width: nombreGenericoWidth,
-              child: Text(producto['nombre']?.toString() ?? '', style: baseStyle,
-                  overflow: TextOverflow.ellipsis))),
-          DataCell(SizedBox(width: nombreMedicoWidth,
-              child: Text(producto['nombreMedico']?.toString() ?? '', style: baseStyle,
-                  overflow: TextOverflow.ellipsis))),
-          DataCell(SizedBox(width: fabricanteWidth,
-              child: Text(producto['fabricante']?.toString() ?? '', style: baseStyle,
-                  overflow: TextOverflow.ellipsis))),
-          DataCell(SizedBox(width: contenidoWidth,
-              child: Text(producto['contenido']?.toString() ?? '', style: baseStyle,
-                  overflow: TextOverflow.ellipsis))),
-          DataCell(SizedBox(width: formaWidth,
-              child: Text(producto['categoria']?.toString() ?? '', style: baseStyle,
-                  overflow: TextOverflow.ellipsis))),
-          DataCell(SizedBox(width: fechaFabWidth,
-              child: Text(producto['fechaFabricacion'] != null ?
-              _formatDate(producto['fechaFabricacion']) : '', style: baseStyle))),
-          DataCell(SizedBox(width: presentacionWidth,
-              child: Text(producto['presentacion']?.toString() ?? '', style: baseStyle,
-                  overflow: TextOverflow.ellipsis))),
-          DataCell(SizedBox(width: fechaCadWidth,
-              child: Text(_formatDate(fechaCaducidad), style: caducidadStyle))),
-          DataCell(SizedBox(width: unidadesWidth,
-              child: Text(producto['unidadesPorCaja']?.toString() ?? '0', style: baseStyle,
-                  textAlign: TextAlign.right))),
-          DataCell(SizedBox(width: precioWidth,
-              child: Text('\$${(producto['precio'] ?? 0).toStringAsFixed(2)}',
-                  style: baseStyle, textAlign: TextAlign.right))),
-          DataCell(SizedBox(width: stockWidth,
-              child: Text(producto['stock']?.toString() ?? '0', style: baseStyle,
-                  textAlign: TextAlign.right))),
+      List<DataCell> cells = [
+        DataCell(SizedBox(width: idWidth,
+            child: Text(producto['id']?.toString() ?? '', style: baseStyle))),
+        DataCell(SizedBox(width: nombreGenericoWidth,
+            child: Text(producto['nombre']?.toString() ?? '', style: baseStyle,
+                overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: nombreMedicoWidth,
+            child: Text(producto['nombreMedico']?.toString() ?? '', style: baseStyle,
+                overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: fabricanteWidth,
+            child: Text(producto['fabricante']?.toString() ?? '', style: baseStyle,
+                overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: contenidoWidth,
+            child: Text(producto['contenido']?.toString() ?? '', style: baseStyle,
+                overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: formaWidth,
+            child: Text(producto['categoria']?.toString() ?? '', style: baseStyle,
+                overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: fechaFabWidth,
+            child: Text(producto['fechaFabricacion'] != null ?
+            _formatDate(producto['fechaFabricacion']) : '', style: baseStyle))),
+        DataCell(SizedBox(width: presentacionWidth,
+            child: Text(producto['presentacion']?.toString() ?? '', style: baseStyle,
+                overflow: TextOverflow.ellipsis))),
+        DataCell(SizedBox(width: fechaCadWidth,
+            child: Text(_formatDate(fechaCaducidad), style: caducidadStyle))),
+        DataCell(SizedBox(width: unidadesWidth,
+            child: Text(producto['unidadesPorCaja']?.toString() ?? '0', style: baseStyle,
+                textAlign: TextAlign.right))),
+        DataCell(SizedBox(width: precioWidth,
+            child: Text('\$${(producto['precio'] ?? 0).toStringAsFixed(2)}',
+                style: baseStyle, textAlign: TextAlign.right))),
+        DataCell(SizedBox(width: stockWidth,
+            child: Text(producto['stock']?.toString() ?? '0', style: baseStyle,
+                textAlign: TextAlign.right))),
+      ];
+
+      // Only add actions cell for local inventory (tab 0)
+      if (currentTab == 0) {
+        cells.add(
           DataCell(SizedBox(
             width: actionsWidth,
             child: PopupMenuButton<String>(
@@ -1045,8 +1045,10 @@ class _InventarioPageState extends State<InventarioPage> {
               },
             ),
           )),
-        ],
-      );
+        );
+      }
+
+      return DataRow(cells: cells);
     }).toList();
   }
 }
