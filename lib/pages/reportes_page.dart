@@ -1,13 +1,26 @@
+import 'dart:math';
+import 'dart:ui_web' as ui;
+
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'package:pdf/pdf.dart';
 import 'package:pdf/widgets.dart' as pw;
 import 'package:path_provider/path_provider.dart';
 import 'dart:io';
-import 'package:flutter/foundation.dart' show kIsWeb;
-import 'package:universal_html/html.dart' as html;
-import 'dart:math';
+
 import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter/services.dart' show rootBundle;
+import 'dart:typed_data';
+import 'package:flutter_pdfview/flutter_pdfview.dart';
+import 'package:printing/printing.dart';
+import 'package:universal_html/html.dart' as html;
+
+Future<Uint8List> loadImageBytes(String path) async {
+  final ByteData data = await rootBundle.load(path);
+  return data.buffer.asUint8List();
+}
+
 
 class Category {
   final String id;
@@ -277,7 +290,8 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-  Widget _buildReportTypeCard(String title, IconData icon, Color gradientStart, Color gradientEnd) {
+  Widget _buildReportTypeCard(String title, IconData icon, Color gradientStart,
+      Color gradientEnd) {
     final isSelected = _reportType == title;
 
     return AnimatedContainer(
@@ -305,11 +319,12 @@ class _ReportesPageState extends State<ReportesPage> {
         color: Colors.transparent,
         child: InkWell(
           borderRadius: BorderRadius.circular(15),
-          onTap: () => setState(() {
-            _reportType = title;
-            selectedCategoryIds.clear();
-            selectedProductIds.clear();
-          }),
+          onTap: () =>
+              setState(() {
+                _reportType = title;
+                selectedCategoryIds.clear();
+                selectedProductIds.clear();
+              }),
           child: Padding(
             padding: const EdgeInsets.all(16),
             child: Row(
@@ -679,7 +694,7 @@ class _ReportesPageState extends State<ReportesPage> {
         ],
       ),
       child: ElevatedButton(
-        onPressed: canGenerate ? _generateAndDownloadPDF : null,
+        onPressed: canGenerate ? () => _generateAndPreviewPDF(context) : null,
         style: ElevatedButton.styleFrom(
           backgroundColor: canGenerate ? const Color(0xFF3E92CC) : Colors.grey,
           shape: RoundedRectangleBorder(
@@ -744,61 +759,183 @@ class _ReportesPageState extends State<ReportesPage> {
     }
   }
 
-  Future<void> _generateAndDownloadPDF() async {
+  Future<void> _generateAndPreviewPDF(BuildContext context) async {
     try {
-      // Create PDF document
+      // Mostrar indicador de carga
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (BuildContext context) {
+          return Dialog(
+            child: Padding(
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: 20),
+                  Text('Generando reporte...')
+                ],
+              ),
+            ),
+          );
+        },
+      );
+
+      // Crear PDF
       final pdf = pw.Document();
 
-      // Get selected products
+      // Obtener productos seleccionados
       final selectedProducts = categories
           .where((category) => selectedCategoryIds.contains(category.id))
           .expand((category) => category.products)
           .where((product) => selectedProductIds.contains(product.id))
           .toList();
 
-      // Add content to PDF
+      final List<Product> productsForReport = selectedProducts.isEmpty &&
+          selectedCategoryIds.isNotEmpty
+          ? categories
+          .where((category) => selectedCategoryIds.contains(category.id))
+          .expand((category) => category.products)
+          .toList()
+          : selectedProducts;
+
+      final List<Product> finalProducts = productsForReport.isEmpty &&
+          selectedCategoryIds.isEmpty
+          ? categories.expand((category) => category.products).toList()
+          : productsForReport;
+
+      // Intentar cargar imagen (temporalmente desactivada para pruebas)
+      Uint8List? imageBytes;
+      try {
+        imageBytes = await loadImageBytes('assets/images/cinamon.png');
+      } catch (e) {
+        print('Error cargando imagen: $e');
+      }
+
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
           build: (context) =>
           [
+            if (imageBytes != null) pw.Image(
+                pw.MemoryImage(imageBytes), width: 50, height: 50),
             _buildPDFHeader(),
             pw.SizedBox(height: 20),
-            _buildPDFContent(selectedProducts),
+            _buildPDFContent(finalProducts),
           ],
         ),
       );
 
-      final String fileName = '${_reportType
-          ?.toLowerCase()}_report_${DateFormat('yyyyMMdd').format(
-          DateTime.now())}.pdf';
+      final Uint8List pdfBytes = await pdf.save();
+      print("PDF generado con ${pdfBytes.length} bytes");
 
-      if (kIsWeb) {
-        final bytes = await pdf.save();
-        final blob = html.Blob([bytes], 'application/pdf');
-        final url = html.Url.createObjectUrlFromBlob(blob);
-        final anchor = html.AnchorElement()
-          ..href = url
-          ..style.display = 'none'
-          ..download = fileName;
-        html.document.body?.children.add(anchor);
-        anchor.click();
-        html.document.body?.children.remove(anchor);
-        html.Url.revokeObjectUrl(url);
-      }else {
-    // Handle mobile download
-    final output = await getApplicationDocumentsDirectory();
-    final file = File('${output.path}/$fileName');
-    await file.writeAsBytes(await pdf.save());
-
-    // Show success dialog
-    if (!mounted) return;
-    _showSuccessDialog(context, file.path);
-    }
+      Navigator.of(context, rootNavigator: true).pop();
+      _showPDFPreviewFromBytes(context, pdfBytes);
     } catch (e) {
-    // Show error dialog
-    if (!mounted) return;
-    _showErrorDialog(context, e.toString());
+      Navigator.of(context, rootNavigator: true).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error al generar PDF: $e")),
+      );
+    }
+  }
+
+  void _showPDFPreviewFromBytes(BuildContext context,
+      Uint8List pdfBytes) async {
+    showDialog(
+      context: context,
+      builder: (context) =>
+          Dialog(
+            insetPadding: EdgeInsets.all(15),
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(15)),
+            child: Container(
+              height: MediaQuery
+                  .of(context)
+                  .size
+                  .height * 0.8,
+              width: MediaQuery
+                  .of(context)
+                  .size
+                  .width * 0.9,
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Padding(
+                        padding: const EdgeInsets.only(left: 16.0),
+                        child: Text(
+                          'Previsualización del Reporte',
+                          style: GoogleFonts.poppins(
+                            fontSize: 18,
+                            fontWeight: FontWeight.w600,
+                            color: Color(0xFF0A2463),
+                          ),
+                        ),
+                      ),
+                      IconButton(
+                        icon: Icon(Icons.close),
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                      ),
+                    ],
+                  ),
+                  Divider(),
+                  Expanded(
+                    child: PdfPreview(
+                      build: (format) async => pdfBytes,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+    );
+  }
+
+
+  void _showPDFInWeb(Uint8List pdfBytes) {
+    final blob = html.Blob([pdfBytes], 'application/pdf');
+    final url = html.Url.createObjectUrlFromBlob(blob);
+    html.window.open(url, "_blank");
+  }
+
+  Future<void> _downloadPDFBytes(BuildContext context,
+      Uint8List pdfBytes) async {
+    final fileName = '${_reportType?.toLowerCase()}_report_${DateFormat(
+        'yyyyMMdd').format(DateTime.now())}.pdf';
+
+    if (kIsWeb) {
+      final blob = html.Blob([pdfBytes], 'application/pdf');
+      final url = html.Url.createObjectUrlFromBlob(blob);
+      final anchor = html.AnchorElement()
+        ..href = url
+        ..style.display = 'none'
+        ..download = fileName;
+      html.document.body?.children.add(anchor);
+      anchor.click();
+      html.document.body?.children.remove(anchor);
+      html.Url.revokeObjectUrl(url);
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("PDF descargado correctamente")),
+      );
+    } else {
+      try {
+        final output = await getApplicationDocumentsDirectory();
+        final newPath = '${output.path}/$fileName';
+        await File(newPath).writeAsBytes(pdfBytes);
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("PDF guardado en: $newPath")),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Error al guardar el PDF: $e")),
+        );
+      }
     }
   }
 
@@ -822,7 +959,8 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
           pw.SizedBox(height: 8),
           pw.Text(
-            'Periodo: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
+            'Periodo: ${DateFormat('dd/MM/yyyy').format(
+                _startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
             style: const pw.TextStyle(
               color: PdfColors.white,
               fontSize: 12,
@@ -840,6 +978,7 @@ class _ReportesPageState extends State<ReportesPage> {
       return _buildSalesTable(products);
     }
   }
+
   pw.Widget _buildSalesTable(List<Product> products) {
     return pw.Table(
       border: pw.TableBorder.all(),
@@ -858,7 +997,6 @@ class _ReportesPageState extends State<ReportesPage> {
           final category = categories.firstWhere(
                 (cat) => cat.id == product.categoryId,
           );
-          // Mock sales data - replace with actual sales data
           final quantitySold = Random().nextInt(50) + 1;
           final total = product.price * quantitySold;
 
@@ -878,7 +1016,6 @@ class _ReportesPageState extends State<ReportesPage> {
 
   pw.Widget _buildInventoryTable(List<Product> products) {
     return pw.TableHelper.fromTextArray(
-
       headerDecoration: pw.BoxDecoration(
         color: const PdfColor.fromInt(0xFF3E92CC),
         borderRadius: pw.BorderRadius.circular(4),
@@ -909,7 +1046,6 @@ class _ReportesPageState extends State<ReportesPage> {
       }).toList(),
     );
   }
-}
 
   pw.Widget _buildTableHeader(String text) {
     return pw.Padding(
@@ -963,3 +1099,4 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
     );
   }
+}
