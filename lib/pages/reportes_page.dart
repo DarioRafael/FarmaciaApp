@@ -15,6 +15,9 @@ import 'dart:typed_data';
 import 'package:flutter_pdfview/flutter_pdfview.dart';
 import 'package:printing/printing.dart';
 import 'package:universal_html/html.dart' as html;
+import 'package:http/http.dart' as http;
+import 'dart:convert';
+
 
 Future<Uint8List> loadImageBytes(String path) async {
   final ByteData data = await rootBundle.load(path);
@@ -66,6 +69,16 @@ class _ReportesPageState extends State<ReportesPage> {
   TextEditingController searchController = TextEditingController();
   TextEditingController categorySearchController = TextEditingController();
 
+  // API URLs
+  final String medicamentosUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
+  final String transaccionesUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/transacciones';
+
+  List<Map<String, dynamic>> productos = [];
+  List<Map<String, dynamic>> transacciones = [];
+  List<Map<String, dynamic>> categorias = [];
+  bool isLoading = false;
+
+
   bool get isSmallScreen =>
       MediaQuery
           .of(context)
@@ -84,101 +97,240 @@ class _ReportesPageState extends State<ReportesPage> {
     final now = DateTime.now();
     _startDate = DateTime(now.year, now.month, 1);
     _endDate = now;
-    _initializeCategoriesAndProducts();
+    _loadDataFromAPI();  // Add this line to load API data
+
   }
 
-  void _initializeCategoriesAndProducts() {
-    categories = [
-      Category(
-        id: '1',
-        name: 'Tabletas',
-        products: [
-          Product(id: '1',
-              name: 'Paracetamol',
-              price: 10.0,
-              stock: 100,
-              categoryId: '1'),
-          Product(id: '2',
-              name: 'Ibuprofeno',
-              price: 15.0,
-              stock: 150,
-              categoryId: '1'),
-        ],
-      ),
-      Category(
-        id: '2',
-        name: 'Bebibles',
-        products: [
-          Product(id: '3',
-              name: 'Jarabe para la tos',
-              price: 20.0,
-              stock: 50,
-              categoryId: '2'),
-          Product(id: '4',
-              name: 'Vitamina C',
-              price: 25.0,
-              stock: 75,
-              categoryId: '2'),
-        ],
-      ),
-    ];
 
-    for (var category in categories) {
-      categoryNameToId[category.name] = category.id;
+
+  Future<void> _loadDataFromAPI() async {
+    setState(() {
+      isLoading = true;
+    });
+
+    try {
+      // Load products
+      final productosResponse = await http.get(Uri.parse(medicamentosUrl));
+      if (productosResponse.statusCode == 200) {
+        final List<dynamic> productosData = json.decode(productosResponse.body);
+
+        // Extract unique categories
+        final Set<String> categoriasSet = {};
+
+        // Transform products data
+        productos = productosData.map((producto) {
+          String categoria = _determinarCategoria(producto['FormaFarmaceutica'] ?? '');
+          categoriasSet.add(categoria);
+
+          return {
+            'id': producto['ID'].toString(),
+            'nombre': producto['NombreMedico'] ?? 'Sin nombre',
+            'nombreGenerico': producto['NombreGenerico'] ?? '',
+            'categoria': categoria,
+            'precio': double.parse((producto['Precio'] ?? 0.0).toString()),
+            'stock': int.parse((producto['UnidadesPorCaja'] ?? 0).toString()),
+            'fabricante': producto['Fabricante'] ?? '',
+            'contenido': producto['Contenido'] ?? '',
+            'fechaCaducidad': producto['FechaCaducidad'] ?? '',
+          };
+        }).toList();
+
+        // Create categories list with explicit type declaration
+        int categoryId = 1;
+        categorias = categoriasSet.map<Map<String, dynamic>>((nombreCategoria) {
+          final categoriaMedicamentos = productos
+              .where((producto) => producto['categoria'] == nombreCategoria)
+              .toList();
+
+          return <String, dynamic>{
+            'id': categoryId++,
+            'nombre': nombreCategoria,
+            'productos': categoriaMedicamentos,
+          };
+        }).toList();
+      }
+
+      // Load transactions with the updated URL
+      final transaccionesResponse = await http.get(Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/transaccionesGet'));
+      if (transaccionesResponse.statusCode == 200) {
+        final data = json.decode(transaccionesResponse.body);
+
+        if (data is Map<String, dynamic> && data.containsKey('transacciones')) {
+          final List<dynamic> transaccionesData = data['transacciones'];
+
+          transacciones = transaccionesData.map((transaccion) {
+            return {
+              'id': transaccion['id'].toString(),
+              'descripcion': transaccion['descripcion'] ?? '',
+              'monto': double.parse((transaccion['monto'] ?? 0.0).toString()),
+              'tipo': transaccion['tipo'] ?? '',
+              'fecha': transaccion['fecha'] ?? '',
+            };
+          }).toList();
+        }
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Error al cargar datos: $e')),
+      );
+    } finally {
+      setState(() {
+        isLoading = false;
+      });
     }
   }
 
-  @override
+  // Helper method to determine category based on product form
+  String _determinarCategoria(String formaFarmaceutica) {
+    final formaLower = formaFarmaceutica.toLowerCase();
+    if (formaLower.contains('pastilla') || formaLower.contains('tableta') || formaLower.contains('cápsula')) {
+      return 'Tabletas';
+    } else if (formaLower.contains('bebibles') || formaLower.contains('suspensión') || formaLower.contains('líquido')) {
+      return 'Bebibles';
+    } else {
+      return 'Otros';
+    }
+  }
+
+  // Get sales data filtered by date and products
+  List<Map<String, dynamic>> _getFilteredSales() {
+    if (_startDate == null || _endDate == null) return [];
+
+    // Create end date with time at 23:59:59 to include the full day
+    final endDateWithTime = DateTime(_endDate!.year, _endDate!.month, _endDate!.day, 23, 59, 59);
+
+    return transacciones.where((transaccion) {
+      // Filter by type (only income/sales)
+      if (transaccion['tipo'] != 'ingreso') return false;
+
+      // Filter by date
+      final fechaStr = transaccion['fecha'];
+      if (fechaStr == null) return false;
+
+      final fecha = DateTime.tryParse(fechaStr);
+      if (fecha == null) return false;
+
+      // Check if date is within range
+      if (fecha.isBefore(_startDate!) || fecha.isAfter(endDateWithTime)) return false;
+
+      // If no products are selected, include all sales in the date range
+      if (selectedProductIds.isEmpty && selectedCategoryIds.isEmpty) return true;
+
+      // Filter by selected products if any
+      if (selectedProductIds.isNotEmpty) {
+        // Parse the description to check if it contains any of the selected products
+        final descripcion = transaccion['descripcion'].toString().toLowerCase();
+
+        for (final productId in selectedProductIds) {
+          final producto = productos.firstWhere(
+                (p) => p['id'].toString() == productId,
+            orElse: () => {'nombre': ''},
+          );
+
+          if (producto['nombre'] != '' &&
+              descripcion.contains(producto['nombre'].toString().toLowerCase())) {
+            return true;
+          }
+        }
+
+        return false;
+      }
+
+      // Filter by selected categories if any
+      else if (selectedCategoryIds.isNotEmpty) {
+        final descripcion = transaccion['descripcion'].toString().toLowerCase();
+
+        for (final categoriaId in selectedCategoryIds) {
+          final categoria = categorias.firstWhere(
+                (c) => c['id'].toString() == categoriaId,
+            orElse: () => {'productos': []},
+          );
+
+          // Check if any product from this category is in the description
+          final productosCategoria = categoria['productos'] as List?;
+          if (productosCategoria != null) {
+            for (final producto in productosCategoria) {
+              if (descripcion.contains(producto['nombre'].toString().toLowerCase())) {
+                return true;
+              }
+            }
+          }
+        }
+
+        return false;
+      }
+
+      return true;
+    }).toList();
+  }
+
+  // Get inventory data filtered by selected categories and products
+  List<Map<String, dynamic>> _getFilteredInventory() {
+    if (selectedProductIds.isNotEmpty) {
+      return productos.where((producto) => selectedProductIds.contains(producto['id'])).toList();
+    } else if (selectedCategoryIds.isNotEmpty) {
+      return productos.where((producto) {
+        final categoria = categorias.firstWhere(
+              (cat) => cat['nombre'] == producto['categoria'],
+          orElse: () => {'id': -1},
+        );
+        return selectedCategoryIds.contains(categoria['id']);
+      }).toList();
+    }
+
+    return productos;
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
             colors: [
-              Color(0xFF0A2463),
-              Color(0xFF3E92CC),
+              const Color(0xFF1976D2),
+              const Color(0xFF0D47A1),
             ],
           ),
         ),
         child: SafeArea(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
+          child: Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  _buildHeader(),
-                  SizedBox(height: isSmallScreen ? 16 : 32),
-                  Container(
-                    decoration: BoxDecoration(
-                      borderRadius: BorderRadius.circular(20),
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.black.withOpacity(0.2),
-                          blurRadius: 20,
-                          spreadRadius: 2,
-                          offset: const Offset(0, 10),
-                        )
-                      ],
+                  Card(
+                    elevation: 8,
+                    shadowColor: Colors.black26,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
                     ),
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(20),
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.95),
-                          backgroundBlendMode: BlendMode.overlay,
-                        ),
-                        child: Padding(
-                          padding: EdgeInsets.all(isSmallScreen ? 16.0 : 24.0),
+                    child: Padding(
+                      padding: EdgeInsets.all(isSmallScreen ? 16 : 24),
+                      child: SingleChildScrollView(
+                        child: Container(
+                          constraints: BoxConstraints(
+                            maxWidth: 800,
+                          ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              _buildReportTypeSelector(),
-                              SizedBox(height: isSmallScreen ? 16 : 24),
-                              if (_reportType != null) ...[
+                              _buildHeader(),
+                              if (isLoading)
+                                Center(
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(32.0),
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                )
+                              else ...[
+                                _buildReportTypeSelector(),
+                                SizedBox(height: isSmallScreen ? 16 : 24),
                                 _buildFilterSection(),
                                 SizedBox(height: isSmallScreen ? 16 : 24),
                                 _buildDateSelector(),
@@ -201,18 +353,31 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 
   Widget _buildHeader() {
-    return Padding(
-      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 8.0 : 16.0),
+    return Container(
+      padding: EdgeInsets.symmetric(vertical: isSmallScreen ? 8.0 : 16.0, horizontal: 16.0),
+      decoration: BoxDecoration(
+        color: const Color(0xFF3E92CC),
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.1),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
       child: Row(
         children: [
           Container(
+            padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.1),
-              borderRadius: BorderRadius.circular(12),
+              color: Colors.white.withOpacity(0.2),
+              shape: BoxShape.circle,
             ),
-            child: IconButton(
-              icon: const Icon(Icons.arrow_back, color: Colors.white),
-              onPressed: () => Navigator.pop(context),
+            child: const Icon(
+              Icons.insert_chart_outlined,
+              color: Colors.white,
+              size: 24,
             ),
           ),
           const SizedBox(width: 16),
@@ -222,23 +387,18 @@ class _ReportesPageState extends State<ReportesPage> {
               children: [
                 Text(
                   'Generación de Reportes',
-                  style: GoogleFonts.poppins(
-                    textStyle: TextStyle(
-                      color: Colors.white,
-                      fontSize: isSmallScreen ? 24 : 32,
-                      fontWeight: FontWeight.w600,
-                      letterSpacing: 0.5,
-                    ),
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: isSmallScreen ? 18 : 22,
+                    fontWeight: FontWeight.bold,
                   ),
                 ),
+                const SizedBox(height: 4),
                 Text(
-                  'Configura y genera reportes detallados',
-                  style: GoogleFonts.poppins(
-                    textStyle: TextStyle(
-                      color: Colors.white.withOpacity(0.9),
-                      fontSize: isSmallScreen ? 14 : 16,
-                      fontWeight: FontWeight.w300,
-                    ),
+                  'Configura y genera reportes',
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: isSmallScreen ? 12 : 14,
                   ),
                 ),
               ],
@@ -348,7 +508,6 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
-
   Widget _buildFilterSection() {
     return Container(
       decoration: BoxDecoration(
@@ -361,11 +520,7 @@ class _ReportesPageState extends State<ReportesPage> {
         children: [
           Text(
             'Filtros',
-            style: Theme
-                .of(context)
-                .textTheme
-                .titleMedium
-                ?.copyWith(
+            style: Theme.of(context).textTheme.titleMedium?.copyWith(
               fontWeight: FontWeight.bold,
               color: Colors.blue.shade900,
             ),
@@ -379,11 +534,12 @@ class _ReportesPageState extends State<ReportesPage> {
     );
   }
 
+
   Widget _buildCategorySelector() {
-    List<Category> filteredCategories = categories
+    // Use API-loaded categories instead of dummy data
+    List<Map<String, dynamic>> filteredCategories = categorias
         .where((category) =>
-        category.name
-            .toLowerCase()
+        category['nombre'].toString().toLowerCase()
             .contains(categorySearchController.text.toLowerCase()))
         .toList();
 
@@ -402,7 +558,7 @@ class _ReportesPageState extends State<ReportesPage> {
             const Spacer(),
             TextButton.icon(
               icon: Icon(
-                selectedCategoryIds.length == categories.length
+                selectedCategoryIds.length == categorias.length
                     ? Icons.check_box
                     : Icons.check_box_outline_blank,
                 size: 20,
@@ -410,10 +566,10 @@ class _ReportesPageState extends State<ReportesPage> {
               label: const Text('Seleccionar todas'),
               onPressed: () {
                 setState(() {
-                  if (selectedCategoryIds.length == categories.length) {
+                  if (selectedCategoryIds.length == categorias.length) {
                     selectedCategoryIds.clear();
                   } else {
-                    selectedCategoryIds = categories.map((c) => c.id).toSet();
+                    selectedCategoryIds = categorias.map((c) => c['id'].toString()).toSet();
                   }
                   selectedProductIds.clear();
                 });
@@ -461,14 +617,14 @@ class _ReportesPageState extends State<ReportesPage> {
             runSpacing: 8,
             children: filteredCategories.map((category) {
               return FilterChip(
-                label: Text(category.name),
-                selected: selectedCategoryIds.contains(category.id),
+                label: Text(category['nombre']),
+                selected: selectedCategoryIds.contains(category['id'].toString()),
                 onSelected: (bool selected) {
                   setState(() {
                     if (selected) {
-                      selectedCategoryIds.add(category.id);
+                      selectedCategoryIds.add(category['id'].toString());
                     } else {
-                      selectedCategoryIds.remove(category.id);
+                      selectedCategoryIds.remove(category['id'].toString());
                     }
                     selectedProductIds.clear();
                   });
@@ -481,13 +637,28 @@ class _ReportesPageState extends State<ReportesPage> {
   }
 
   Widget _buildProductSelector() {
-    List<Product> selectedCategoryProducts = [];
+    // Filter products based on selected categories
+    List<Map<String, dynamic>> filteredProducts = [];
 
     if (selectedCategoryIds.isNotEmpty) {
-      selectedCategoryProducts = categories
-          .where((category) => selectedCategoryIds.contains(category.id))
-          .expand((category) => category.products)
-          .toList();
+      filteredProducts = productos.where((producto) {
+        // Find the category object for this product
+        final categoria = categorias.firstWhere(
+              (cat) => cat['nombre'] == producto['categoria'],
+          orElse: () => {'id': -1},
+        );
+        // Check if the product's category is in selectedCategoryIds
+        return selectedCategoryIds.contains(categoria['id'].toString());
+      }).toList();
+    }
+
+    // Further filter by search term if provided
+    if (searchController.text.isNotEmpty) {
+      final searchTerm = searchController.text.toLowerCase();
+      filteredProducts = filteredProducts.where((producto) =>
+      producto['nombre'].toString().toLowerCase().contains(searchTerm) ||
+          producto['nombreGenerico'].toString().toLowerCase().contains(searchTerm)
+      ).toList();
     }
 
     return Column(
@@ -505,18 +676,17 @@ class _ReportesPageState extends State<ReportesPage> {
             const Spacer(),
             TextButton.icon(
               icon: Icon(
-                selectAllProducts ? Icons.check_box : Icons
-                    .check_box_outline_blank,
+                selectAllProducts ? Icons.check_box : Icons.check_box_outline_blank,
                 size: 20,
               ),
               label: const Text('Seleccionar todos'),
-              onPressed: () {
+              onPressed: filteredProducts.isEmpty ? null : () {
                 setState(() {
                   if (selectAllProducts) {
                     selectedProductIds.clear();
                   } else {
-                    selectedProductIds = selectedCategoryProducts
-                        .map((p) => p.id)
+                    selectedProductIds = filteredProducts
+                        .map((p) => p['id'].toString())
                         .toSet();
                   }
                   selectAllProducts = !selectAllProducts;
@@ -531,6 +701,16 @@ class _ReportesPageState extends State<ReportesPage> {
           decoration: InputDecoration(
             hintText: 'Buscar productos...',
             prefixIcon: const Icon(Icons.search),
+            suffixIcon: searchController.text.isNotEmpty
+                ? IconButton(
+              icon: const Icon(Icons.clear),
+              onPressed: () {
+                setState(() {
+                  searchController.clear();
+                });
+              },
+            )
+                : null,
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -538,7 +718,18 @@ class _ReportesPageState extends State<ReportesPage> {
           onChanged: (value) => setState(() {}),
         ),
         const SizedBox(height: 16),
-        if (selectedCategoryProducts.isEmpty)
+        if (selectedCategoryIds.isEmpty)
+          Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Text(
+              'Selecciona una categoría primero',
+              style: TextStyle(
+                color: Colors.grey.shade600,
+                fontStyle: FontStyle.italic,
+              ),
+            ),
+          )
+        else if (filteredProducts.isEmpty)
           Padding(
             padding: const EdgeInsets.all(8.0),
             child: Text(
@@ -553,25 +744,21 @@ class _ReportesPageState extends State<ReportesPage> {
           Wrap(
             spacing: 8,
             runSpacing: 8,
-            children: selectedCategoryProducts
-                .where((product) =>
-                product.name
-                    .toLowerCase()
-                    .contains(searchController.text.toLowerCase()))
-                .map((product) {
+            children: filteredProducts.map((producto) {
               return FilterChip(
-                label: Text(product.name),
-                selected: selectedProductIds.contains(product.id),
+                label: Text(
+                  producto['nombre'],
+                  overflow: TextOverflow.ellipsis,
+                ),
+                selected: selectedProductIds.contains(producto['id'].toString()),
                 onSelected: (bool selected) {
                   setState(() {
                     if (selected) {
-                      selectedProductIds.add(product.id);
+                      selectedProductIds.add(producto['id'].toString());
                     } else {
-                      selectedProductIds.remove(product.id);
+                      selectedProductIds.remove(producto['id'].toString());
                     }
-                    selectAllProducts = selectedProductIds.containsAll(
-                        selectedCategoryProducts.map((p) => p.id)
-                    );
+                    selectAllProducts = selectedProductIds.length == filteredProducts.length;
                   });
                 },
               );
@@ -761,83 +948,207 @@ class _ReportesPageState extends State<ReportesPage> {
 
   Future<void> _generateAndPreviewPDF(BuildContext context) async {
     try {
-      // Mostrar indicador de carga
+      // Show loading indicator
       showDialog(
         context: context,
         barrierDismissible: false,
-        builder: (BuildContext context) {
-          return Dialog(
-            child: Padding(
-              padding: const EdgeInsets.all(20),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  CircularProgressIndicator(),
-                  SizedBox(height: 20),
-                  Text('Generando reporte...')
-                ],
-              ),
-            ),
-          );
-        },
+        builder: (context) => const Center(
+          child: CircularProgressIndicator(),
+        ),
       );
 
-      // Crear PDF
+      // Create PDF
       final pdf = pw.Document();
 
-      // Obtener productos seleccionados
-      final selectedProducts = categories
-          .where((category) => selectedCategoryIds.contains(category.id))
-          .expand((category) => category.products)
-          .where((product) => selectedProductIds.contains(product.id))
-          .toList();
+      // Determine which products to include in the report
+      List<Map<String, dynamic>> productsForReport = [];
 
-      final List<Product> productsForReport = selectedProducts.isEmpty &&
-          selectedCategoryIds.isNotEmpty
-          ? categories
-          .where((category) => selectedCategoryIds.contains(category.id))
-          .expand((category) => category.products)
-          .toList()
-          : selectedProducts;
+      if (selectedProductIds.isNotEmpty) {
+        // If specific products are selected, use those
+        productsForReport = productos.where((producto) =>
+            selectedProductIds.contains(producto['id'].toString())).toList();
+      } else if (selectedCategoryIds.isNotEmpty) {
+        // If only categories are selected, include all products in those categories
+        productsForReport = productos.where((producto) {
+          // Find the category for this product
+          final categoria = categorias.firstWhere(
+                (cat) => cat['nombre'] == producto['categoria'],
+            orElse: () => {'id': -1},
+          );
+          return selectedCategoryIds.contains(categoria['id'].toString());
+        }).toList();
+      } else {
+        // If nothing selected, include all products
+        productsForReport = List.from(productos);
+      }
 
-      final List<Product> finalProducts = productsForReport.isEmpty &&
-          selectedCategoryIds.isEmpty
-          ? categories.expand((category) => category.products).toList()
-          : productsForReport;
-
-      // Intentar cargar imagen (temporalmente desactivada para pruebas)
+      // Try to load image (temporarily disabled for testing)
       Uint8List? imageBytes;
       try {
-        imageBytes = await loadImageBytes('assets/images/cinamon.png');
+        // Uncomment when image is available
+        // imageBytes = await loadImageBytes('assets/logo.png');
       } catch (e) {
-        print('Error cargando imagen: $e');
+        print("Error loading image: $e");
       }
 
       pdf.addPage(
         pw.MultiPage(
           pageFormat: PdfPageFormat.a4,
-          build: (context) =>
-          [
-            if (imageBytes != null) pw.Image(
-                pw.MemoryImage(imageBytes), width: 50, height: 50),
-            _buildPDFHeader(),
-            pw.SizedBox(height: 20),
-            _buildPDFContent(finalProducts),
-          ],
+          margin: const pw.EdgeInsets.all(32),
+          build: (pw.Context context) {
+            return [
+              _buildPDFHeader(),
+              pw.SizedBox(height: 20),
+              pw.Text(
+                '${_reportType == "Inventario" ? "Reporte de Inventario" : "Reporte de Ventas"}',
+                style: pw.TextStyle(
+                  fontSize: 20,
+                  fontWeight: pw.FontWeight.bold,
+                ),
+              ),
+              pw.SizedBox(height: 10),
+              pw.Text(
+                'Período: ${DateFormat('dd/MM/yyyy').format(_startDate!)} - ${DateFormat('dd/MM/yyyy').format(_endDate!)}',
+                style: const pw.TextStyle(fontSize: 14),
+              ),
+              pw.SizedBox(height: 20),
+              _buildPDFContent(productsForReport),
+            ];
+          },
         ),
       );
 
       final Uint8List pdfBytes = await pdf.save();
-      print("PDF generado con ${pdfBytes.length} bytes");
+      print("PDF generated with ${pdfBytes.length} bytes");
 
       Navigator.of(context, rootNavigator: true).pop();
       _showPDFPreviewFromBytes(context, pdfBytes);
     } catch (e) {
       Navigator.of(context, rootNavigator: true).pop();
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error al generar PDF: $e")),
+        SnackBar(content: Text('Error al generar PDF: $e')),
       );
     }
+  }
+
+  pw.Widget _buildPDFContent(List<Map<String, dynamic>> products) {
+    if (_reportType == 'Inventario') {
+      return _buildInventoryTable(products);
+    } else {
+      return _buildSalesTable(products);
+    }
+  }
+
+  pw.Widget _buildSalesTable(List<Map<String, dynamic>> products) {
+    // Get filtered sales transactions
+    final salesTransactions = _getFilteredSales();
+
+    // Create table headers
+    final headers = ['Fecha', 'Descripción', 'Monto'];
+
+    // Convert transactions to table data with explicit String casting and proper date formatting
+    final List<List<String>> data = salesTransactions.map<List<String>>((transaction) {
+      // Format date to show only year, month, day
+      String formattedDate = "";
+      try {
+        final dateStr = transaction['fecha'].toString();
+        final date = DateTime.parse(dateStr);
+        formattedDate = DateFormat('yyyy-MM-dd').format(date);
+      } catch (e) {
+        formattedDate = transaction['fecha'].toString().split('T')[0];
+      }
+
+      return [
+        formattedDate,
+        transaction['descripcion'].toString(),
+        '\$${transaction['monto'].toStringAsFixed(2)}',
+      ];
+    }).toList();
+
+    // Add a summary row with total
+    final double totalSales = salesTransactions.fold(
+        0.0,
+            (sum, item) => sum + (item['monto'] as double)
+    );
+
+    // Return the table with adjusted column widths
+    return pw.Column(
+      crossAxisAlignment: pw.CrossAxisAlignment.start,
+      children: [
+        pw.TableHelper.fromTextArray(
+          headerDecoration: pw.BoxDecoration(
+            color: const PdfColor.fromInt(0xFF3E92CC),
+            borderRadius: pw.BorderRadius.circular(4),
+          ),
+          headerStyle: pw.TextStyle(
+            color: PdfColors.white,
+            fontWeight: pw.FontWeight.bold,
+          ),
+          rowDecoration: const pw.BoxDecoration(
+            border: pw.Border(
+              bottom: pw.BorderSide(
+                color: PdfColors.grey300,
+                width: 0.5,
+              ),
+            ),
+          ),
+          headers: headers,
+          data: data,
+          // Define specific column widths to prevent wrapping
+          columnWidths: {
+            0: const pw.FlexColumnWidth(3), // Fecha - narrower
+            1: const pw.FlexColumnWidth(8), // Descripción - wider
+            2: const pw.FlexColumnWidth(3), // Monto - wider to avoid wrapping
+          },
+          headerAlignment: pw.Alignment.center,
+        ),
+        pw.SizedBox(height: 10),
+        pw.Container(
+          alignment: pw.Alignment.centerRight,
+          child: pw.Text(
+            'Total: \$${totalSales.toStringAsFixed(2)}',
+            style: pw.TextStyle(
+              fontWeight: pw.FontWeight.bold,
+              fontSize: 14,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  pw.Widget _buildInventoryTable(List<Map<String, dynamic>> products) {
+    // Create the data for the table with explicit String casting
+    List<List<String>> data = products.map<List<String>>((product) {
+      return [
+        product['nombre'].toString(),
+        product['categoria'].toString(),
+        product['stock'].toString(),
+        '\$${product['precio'].toStringAsFixed(2)}',
+      ];
+    }).toList();
+
+    // Return the table
+    return pw.TableHelper.fromTextArray(
+      headerDecoration: pw.BoxDecoration(
+        color: const PdfColor.fromInt(0xFF3E92CC),
+        borderRadius: pw.BorderRadius.circular(4),
+      ),
+      headerStyle: pw.TextStyle(
+        color: PdfColors.white,
+        fontWeight: pw.FontWeight.bold,
+      ),
+      rowDecoration: const pw.BoxDecoration(
+        border: pw.Border(
+          bottom: pw.BorderSide(
+            color: PdfColors.grey300,
+            width: 0.5,
+          ),
+        ),
+      ),
+      headers: ['Producto', 'Categoría', 'Stock', 'Precio'],
+      data: data,
+    );
   }
 
   void _showPDFPreviewFromBytes(BuildContext context,
@@ -968,82 +1279,6 @@ class _ReportesPageState extends State<ReportesPage> {
           ),
         ],
       ),
-    );
-  }
-
-  pw.Widget _buildPDFContent(List<Product> products) {
-    if (_reportType == 'Inventario') {
-      return _buildInventoryTable(products);
-    } else {
-      return _buildSalesTable(products);
-    }
-  }
-
-  pw.Widget _buildSalesTable(List<Product> products) {
-    return pw.Table(
-      border: pw.TableBorder.all(),
-      children: [
-        pw.TableRow(
-          decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          children: [
-            _buildTableHeader('Producto'),
-            _buildTableHeader('Categoría'),
-            _buildTableHeader('Precio Unitario'),
-            _buildTableHeader('Cantidad Vendida'),
-            _buildTableHeader('Total'),
-          ],
-        ),
-        ...products.map((product) {
-          final category = categories.firstWhere(
-                (cat) => cat.id == product.categoryId,
-          );
-          final quantitySold = Random().nextInt(50) + 1;
-          final total = product.price * quantitySold;
-
-          return pw.TableRow(
-            children: [
-              _buildTableCell(product.name),
-              _buildTableCell(category.name),
-              _buildTableCell('\$${product.price.toStringAsFixed(2)}'),
-              _buildTableCell(quantitySold.toString()),
-              _buildTableCell('\$${total.toStringAsFixed(2)}'),
-            ],
-          );
-        }),
-      ],
-    );
-  }
-
-  pw.Widget _buildInventoryTable(List<Product> products) {
-    return pw.TableHelper.fromTextArray(
-      headerDecoration: pw.BoxDecoration(
-        color: const PdfColor.fromInt(0xFF3E92CC),
-        borderRadius: pw.BorderRadius.circular(4),
-      ),
-      headerStyle: pw.TextStyle(
-        color: PdfColors.white,
-        fontWeight: pw.FontWeight.bold,
-      ),
-      rowDecoration: const pw.BoxDecoration(
-        border: pw.Border(
-          bottom: pw.BorderSide(
-            color: PdfColor.fromInt(0xFF0A2463),
-            width: 0.5,
-          ),
-        ),
-      ),
-      headers: ['Producto', 'Categoría', 'Stock', 'Precio'],
-      data: products.map((product) {
-        final category = categories.firstWhere(
-              (cat) => cat.id == product.categoryId,
-        );
-        return [
-          product.name,
-          category.name,
-          product.stock.toString(),
-          '\$${product.price.toStringAsFixed(2)}',
-        ];
-      }).toList(),
     );
   }
 
