@@ -24,6 +24,10 @@ class _InventarioPageState extends State<InventarioPage> {
   List<List<Map<String, dynamic>>> _allInventories = [];
   List<List<Map<String, dynamic>>> _filteredInventories = [];
 
+  List<Map<String, dynamic>> _almacenProductos = [];
+  List<Map<String, dynamic>> _selectedForRestock = [];
+  double _totalRestockCost = 0.0;
+
 // Column width definitions
   double idWidth = 60.0;
   double nombreGenericoWidth = 200.0;
@@ -53,7 +57,10 @@ class _InventarioPageState extends State<InventarioPage> {
     super.initState();
     _searchController.addListener(_filterProducts);
     _loadProductsFromApi();
+    _generateAlmacenProductos();
   }//Probar de nuevo
+
+
 
   Future<void> _loadProductsFromApi() async {
     setState(() {});
@@ -95,6 +102,7 @@ class _InventarioPageState extends State<InventarioPage> {
           _loadCategorias();
           _filterProducts();
           _initializeAllInventories();
+          _generateAlmacenProductos();
         });
       } else {
         throw Exception('Failed to load products');
@@ -103,6 +111,38 @@ class _InventarioPageState extends State<InventarioPage> {
       setState(() {});
       _showErrorDialog('Error al cargar datos: $e');
     }
+  }
+
+  void _generateAlmacenProductos() {
+    final random = Random();
+
+    // Ensure productos is not empty
+    if (_productos.isEmpty) {
+      print("Error: No hay productos disponibles para generar almacén");
+      return;
+    }
+
+    _almacenProductos = _productos.map((producto) {
+      // Generar un stock aleatorio para el almacén (generalmente más alto que el inventario local)
+      final almacenStock = random.nextInt(500) + 100; // Entre 100 y 600 unidades
+
+      // Generar un costo de reabastecimiento aleatorio (generalmente menor que el precio de venta)
+      final precioVenta = producto['precio'] as double;
+      final costoReabastecimiento = (precioVenta * (0.4 + (random.nextDouble() * 0.3))).toStringAsFixed(2);
+
+      return {
+        ...producto,
+        'almacenStock': almacenStock,
+        'costoReabastecimiento': double.parse(costoReabastecimiento),
+        'cantidadAReabastecer': 0,
+      };
+    }).toList();
+
+    // Ordenar productos del almacén por nombre alfabéticamente
+    _sortAlmacenProducts();
+
+    setState(() {});
+    print("Almacén generado con ${_almacenProductos.length} productos");
   }
 
   void _initializeAllInventories() {
@@ -167,29 +207,33 @@ class _InventarioPageState extends State<InventarioPage> {
       // Aplicar ordenamiento
       _sortProducts();
       _sortAllInventories();
+
+      // También ordenar los productos del almacén
+      _sortAlmacenProducts();
     });
+  }
+
+
+
+// Nueva función para ordenar los productos del almacén
+  void _sortAlmacenProducts() {
+    _almacenProductos.sort((a, b) =>
+        a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase())
+    );
   }
 
 
   void _sortProducts() {
-    _filteredProducts.sort((a, b) {
-      int nameComparison = a['nombre'].compareTo(b['nombre']);
-      if (nameComparison != 0) {
-        return nameComparison;
-      }
-      return a['categoria'].compareTo(b['categoria']);
-    });
+    _filteredProducts.sort((a, b) =>
+        a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase())
+    );
   }
 
   void _sortAllInventories() {
     for (var inventory in _filteredInventories) {
-      inventory.sort((a, b) {
-        int nameComparison = a['nombre'].compareTo(b['nombre']);
-        if (nameComparison != 0) {
-          return nameComparison;
-        }
-        return a['categoria'].compareTo(b['categoria']);
-      });
+      inventory.sort((a, b) =>
+          a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase())
+      );
     }
   }
 
@@ -210,6 +254,855 @@ class _InventarioPageState extends State<InventarioPage> {
 
     return groupedProducts;
   }
+
+  void _mostrarVistaReabastecimiento() {
+    // Ensure we have products in the almacen
+    if (_almacenProductos.isEmpty) {
+      _generateAlmacenProductos();
+    }
+
+    // Resetear selecciones previas
+    _selectedForRestock = [];
+    _totalRestockCost = 0.0;
+
+    // Para cada producto en almacén, resetear la cantidad a reabastecer
+    for (var producto in _almacenProductos) {
+      producto['cantidadAReabastecer'] = 0;
+    }
+
+    showDialog(
+      context: context,
+      builder: (context) => _buildReabastecimientoDialog(context),
+    );
+  }
+
+  Widget _buildReabastecimientoDialog(BuildContext context) {
+    final screenSize = MediaQuery.of(context).size;
+    final dialogWidth = screenSize.width * 0.85;
+    final dialogHeight = screenSize.height * 0.85;
+
+    // Add a controller for the search field and a filteredProducts variable
+    final TextEditingController searchController = TextEditingController();
+    List<Map<String, dynamic>> filteredAlmacenProductos = List.from(_almacenProductos);
+
+    return Dialog(
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16.0),
+      ),
+      child: Container(
+        width: dialogWidth,
+        height: dialogHeight,
+        padding: const EdgeInsets.all(16.0),
+        child: StatefulBuilder(
+          builder: (BuildContext context, StateSetter setState) {
+            // Function to filter products based on search query (en _buildReabastecimientoDialog)
+            void filterAlmacenProducts(String query) {
+              setState(() {
+                if (query.isEmpty) {
+                  filteredAlmacenProductos = List.from(_almacenProductos);
+                } else {
+                  filteredAlmacenProductos = _almacenProductos
+                      .where((producto) =>
+                  producto['nombre'].toString().toLowerCase().contains(query.toLowerCase()) ||
+                      producto['nombreMedico'].toString().toLowerCase().contains(query.toLowerCase()) ||
+                      producto['categoria'].toString().toLowerCase().contains(query.toLowerCase()) ||
+                      producto['fabricante'].toString().toLowerCase().contains(query.toLowerCase()) ||
+                      producto['id'].toString().toLowerCase().contains(query.toLowerCase()))
+                      .toList();
+                }
+
+                // Ordenar los productos filtrados por nombre alfabéticamente
+                filteredAlmacenProductos.sort((a, b) =>
+                    a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase())
+                );
+              });
+            }
+
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Header
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text(
+                      'Reabastecimiento de Inventario',
+                      style: TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.bold,
+                        color: primaryBlue,
+                      ),
+                    ),
+                    IconButton(
+                      icon: const Icon(Icons.close),
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ],
+                ),
+
+                const SizedBox(height: 16),
+
+                // Search bar - Updated to use the controller and call filter function
+                TextField(
+                  controller: searchController,
+                  decoration: InputDecoration(
+                    hintText: 'Buscar productos',
+                    prefixIcon: const Icon(Icons.search),
+                    suffixIcon: searchController.text.isNotEmpty
+                        ? IconButton(
+                      icon: const Icon(Icons.clear),
+                      onPressed: () {
+                        searchController.clear();
+                        filterAlmacenProducts('');
+                      },
+                    )
+                        : null,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(8.0),
+                    ),
+                    filled: true,
+                    fillColor: Colors.white,
+                  ),
+                  onChanged: filterAlmacenProducts,
+                ),
+
+                // Rest of the content remains the same
+                const SizedBox(height: 16),
+
+                // Local inventory summary
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE8F5E9),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.green.shade300),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.info_outline, color: Colors.green),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Tu inventario local se muestra a continuación. Los productos con stock bajo aparecen primero.',
+                          style: TextStyle(color: Colors.green.shade800),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Local inventory products with low stock
+                Container(
+                  height: 120,
+                  decoration: BoxDecoration(
+                    border: Border.all(color: Colors.grey.shade300),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        width: double.infinity,
+                        decoration: BoxDecoration(
+                          color: Colors.orange.shade100,
+                          borderRadius: const BorderRadius.only(
+                            topLeft: Radius.circular(7),
+                            topRight: Radius.circular(7),
+                          ),
+                        ),
+                        child: const Text(
+                          'Tu Inventario Local (Ordenado por Stock Bajo)',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.deepOrange,
+                          ),
+                        ),
+                      ),
+                      Expanded(
+                        child: _buildLocalInventoryList(),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Container with warehouse and selected products
+                Expanded(
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      // Left side: Available products in warehouse - USE FILTERED PRODUCTS HERE
+                      Expanded(
+                        flex: 3,
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: const BoxDecoration(
+                                  color: secondaryBlue,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(8),
+                                    topRight: Radius.circular(8),
+                                  ),
+                                ),
+                                child: Row(
+                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Text(
+                                      'Productos Disponibles en Almacén',
+                                      style: TextStyle(
+                                        color: white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                      ),
+                                    ),
+                                    Text(
+                                      '${filteredAlmacenProductos.length} productos',
+                                      style: TextStyle(
+                                        color: white,
+                                        fontSize: 14,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildAlmacenProductList(setState, filteredAlmacenProductos),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                      // Rest of the dialog remains unchanged
+                      const SizedBox(width: 16),
+
+                      // Right side: Selected products
+                      Expanded(
+                        flex: 2,
+                        child: Card(
+                          elevation: 2,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8.0),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.all(12),
+                                decoration: const BoxDecoration(
+                                  color: secondaryBlue,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: Radius.circular(8),
+                                    topRight: Radius.circular(8),
+                                  ),
+                                ),
+                                child: Text(
+                                  'Productos Seleccionados',
+                                  style: TextStyle(
+                                    color: white,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
+                              ),
+                              Expanded(
+                                child: _buildSelectedProductList(setState),
+                              ),
+
+                              // Summary and invoice section
+                              Container(
+                                padding: const EdgeInsets.all(16),
+                                decoration: BoxDecoration(
+                                  color: lightBlue,
+                                  borderRadius: const BorderRadius.only(
+                                    bottomLeft: Radius.circular(8),
+                                    bottomRight: Radius.circular(8),
+                                  ),
+                                ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    const Text(
+                                      'Resumen de Reabastecimiento:',
+                                      style: TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 16,
+                                        color: primaryBlue,
+                                      ),
+                                    ),
+                                    const SizedBox(height: 8),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Total Productos:'),
+                                        Text(
+                                          '${_selectedForRestock.length}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Total Unidades:'),
+                                        Text(
+                                          '${_calcularTotalUnidades()}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('Subtotal:'),
+                                        Text(
+                                          '\$${_totalRestockCost.toStringAsFixed(2)}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                    const SizedBox(height: 4),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text('IVA (16%):'),
+                                        Text(
+                                          '\$${(_totalRestockCost * 0.16).toStringAsFixed(2)}',
+                                          style: const TextStyle(fontWeight: FontWeight.bold),
+                                        ),
+                                      ],
+                                    ),
+                                    const Divider(thickness: 1),
+                                    Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        const Text(
+                                          'TOTAL:',
+                                          style: TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                          ),
+                                        ),
+                                        Text(
+                                          '\$${(_totalRestockCost * 1.16).toStringAsFixed(2)}',
+                                          style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 18,
+                                            color: primaryBlue,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // Action buttons
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      onPressed: () => Navigator.of(context).pop(),
+                      style: OutlinedButton.styleFrom(
+                        side: const BorderSide(color: primaryBlue),
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 16),
+                    ElevatedButton(
+                      onPressed: _selectedForRestock.isEmpty
+                          ? null
+                          : () {
+                        _procesarReabastecimiento();
+                      },
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: primaryBlue,
+                        padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.check),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Confirmar Reabastecimiento \$${(_totalRestockCost * 1.16).toStringAsFixed(2)}',
+                            style: TextStyle(color: white),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+
+  Widget _buildLocalInventoryList() {
+    // Sort productos first by stock (ascending) to show low stock items first
+    // Then by name for items with the same stock level
+    final sortedProductos = List<Map<String, dynamic>>.from(_productos)
+      ..sort((a, b) {
+        int stockComparison = (a['stock'] as int).compareTo(b['stock'] as int);
+        if (stockComparison != 0) {
+          return stockComparison;
+        }
+        // If stock is the same, sort by name
+        return a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase());
+      });
+
+    // Show only first 30 products for performance, focusing on low stock
+    final displayProducts = sortedProductos.take(30).toList();
+
+    // rest of the function remains the same...
+
+
+    return ListView.builder(
+      itemCount: displayProducts.length,
+      scrollDirection: Axis.horizontal,
+      padding: const EdgeInsets.symmetric(horizontal: 8),
+      itemBuilder: (context, index) {
+        final producto = displayProducts[index];
+        final int stock = producto['stock'] as int;
+
+        // Define color based on stock level
+        Color stockColor;
+        if (stock <= 5) {
+          stockColor = Colors.red;  // Critical stock
+        } else if (stock <= 15) {
+          stockColor = Colors.orange;  // Low stock
+        } else {
+          stockColor = Colors.green;  // Good stock
+        }
+
+        return Container(
+          width: 160,
+          height: 80, // Fixed height to prevent overflow
+          margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 4),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(
+              color: stockColor.withOpacity(0.5),
+              width: 1,
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min, // Use min size
+              children: [
+                Text(
+                  producto['nombre'] ?? 'Sin nombre',
+                  style: const TextStyle(fontWeight: FontWeight.bold),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2), // Reduced spacing
+                Text(
+                  '${producto['categoria'] ?? ''} - ${producto['contenido'] ?? ''}',
+                  style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 2), // Reduced spacing
+                Row(
+                  children: [
+                    Icon(
+                      Icons.inventory_2,
+                      size: 12, // Smaller icon
+                      color: stockColor,
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Stock: $stock',
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 11, // Smaller text
+                        color: stockColor,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget para mostrar productos en almacén
+  Widget _buildAlmacenProductList(StateSetter setState, [List<Map<String, dynamic>>? filteredProducts]) {
+    // Use the filtered list if provided, otherwise use the complete almacen list
+    final productsList = filteredProducts ?? _almacenProductos;
+
+    return ListView.builder(
+      itemCount: productsList.length,
+      itemBuilder: (context, index) {
+        final producto = productsList[index];
+        final bool isSelected = producto['cantidadAReabastecer'] > 0;
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          color: isSelected ? const Color(0xFFE3F2FD) : Colors.white,
+          elevation: isSelected ? 2 : 1,
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text(
+              producto['nombre'],
+              style: const TextStyle(fontWeight: FontWeight.bold),
+            ),
+            subtitle: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text('${producto['categoria']} - ${producto['contenido']}'),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    const Icon(Icons.inventory_2, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Disponible en almacén: ${producto['almacenStock']}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+                Row(
+                  children: [
+                    const Icon(Icons.attach_money, size: 16, color: Colors.grey),
+                    const SizedBox(width: 4),
+                    Text(
+                      'Costo: \$${producto['costoReabastecimiento'].toStringAsFixed(2)}',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Spinbox para cantidad
+                SizedBox(
+                  width: 120,
+                  child: Row(
+                    children: [
+                      IconButton(
+                        icon: const Icon(Icons.remove_circle_outline),
+                        color: primaryBlue,
+                        onPressed: producto['cantidadAReabastecer'] > 0
+                            ? () {
+                          setState(() {
+                            producto['cantidadAReabastecer']--;
+
+                            // Si la cantidad es cero, quitar de seleccionados
+                            if (producto['cantidadAReabastecer'] == 0) {
+                              _selectedForRestock.removeWhere(
+                                      (p) => p['id'] == producto['id']);
+                            }
+
+                            _updateTotalCost();
+                          });
+                        }
+                            : null,
+                      ),
+                      Text(
+                        '${producto['cantidadAReabastecer']}',
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      IconButton(
+                        icon: const Icon(Icons.add_circle_outline),
+                        color: primaryBlue,
+                        onPressed: producto['cantidadAReabastecer'] < producto['almacenStock']
+                            ? () {
+                          setState(() {
+                            producto['cantidadAReabastecer']++;
+
+                            // Si no está en seleccionados, agregarlo
+                            if (!_selectedForRestock
+                                .any((p) => p['id'] == producto['id'])) {
+                              _selectedForRestock.add(producto);
+                            }
+
+                            _updateTotalCost();
+                          });
+                        }
+                            : null,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // Botón para transferir al carrito
+                IconButton(
+                  icon: Icon(
+                    isSelected ? Icons.shopping_cart : Icons.add_shopping_cart_outlined,
+                    color: isSelected ? Colors.green : Colors.grey,
+                  ),
+                  onPressed: () {
+                    setState(() {
+                      if (isSelected) {
+                        // Si ya está seleccionado, quitar de la selección
+                        producto['cantidadAReabastecer'] = 0;
+                        _selectedForRestock.removeWhere((p) => p['id'] == producto['id']);
+                      } else {
+                        // Si no está seleccionado, agregar con cantidad 1
+                        producto['cantidadAReabastecer'] = 1;
+                        _selectedForRestock.add(producto);
+                      }
+
+                      _updateTotalCost();
+                    });
+                  },
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Widget para mostrar productos seleccionados
+  Widget _buildSelectedProductList(StateSetter setState) {
+    if (_selectedForRestock.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.shopping_cart_outlined, size: 48, color: Colors.grey),
+            const SizedBox(height: 16),
+            const Text(
+              'No hay productos seleccionados',
+              style: TextStyle(color: Colors.grey),
+            ),
+            const SizedBox(height: 8),
+            const Text(
+              'Selecciona productos del almacén',
+              style: TextStyle(color: Colors.grey, fontSize: 12),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      itemCount: _selectedForRestock.length,
+      itemBuilder: (context, index) {
+        final producto = _selectedForRestock[index];
+        final subtotal = producto['cantidadAReabastecer'] *
+            producto['costoReabastecimiento'];
+
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 4, horizontal: 8),
+          child: ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+            title: Text(
+              producto['nombre'],
+              style: const TextStyle(fontWeight: FontWeight.bold),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+            subtitle: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text('${producto['cantidadAReabastecer']} x \$${producto['costoReabastecimiento'].toStringAsFixed(2)}'),
+                Text(
+                  '\$${subtotal.toStringAsFixed(2)}',
+                  style: const TextStyle(
+                    fontWeight: FontWeight.bold,
+                    color: primaryBlue,
+                  ),
+                ),
+              ],
+            ),
+            trailing: IconButton(
+              icon: const Icon(Icons.delete_outline, color: Colors.red),
+              onPressed: () {
+                setState(() {
+                  producto['cantidadAReabastecer'] = 0;
+                  _selectedForRestock.removeAt(index);
+                  _updateTotalCost();
+                });
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // Calcular total de unidades
+  int _calcularTotalUnidades() {
+    int total = 0;
+    for (var producto in _selectedForRestock) {
+      total += producto['cantidadAReabastecer'] as int;
+    }
+    return total;
+  }
+
+  // Actualizar costo total
+  void _updateTotalCost() {
+    double total = 0;
+    for (var producto in _selectedForRestock) {
+      total += (producto['cantidadAReabastecer'] as int) *
+          (producto['costoReabastecimiento'] as double);
+    }
+    _totalRestockCost = total;
+  }
+
+  void _procesarReabastecimiento() async {
+    // Show loading indicator
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const Center(
+        child: CircularProgressIndicator(),
+      ),
+    );
+
+    try {
+      // Process each selected product
+      for (var producto in _selectedForRestock) {
+        // Call the reabastecimiento API
+        final response = await http.put(
+          Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos/${producto['id']}/reabastecer'),
+          headers: {'Content-Type': 'application/json'},
+          body: json.encode({
+            'cantidad': producto['cantidadAReabastecer']
+          }),
+        );
+
+        if (response.statusCode != 200) {
+          throw Exception('Error al reabastecer el producto ${producto['nombre']}');
+        }
+
+        // Update local inventory - ADD to stock instead of subtracting
+        final int index = _productos.indexWhere((p) => p['id'] == producto['id']);
+        if (index != -1) {
+          _productos[index]['stock'] = (_productos[index]['stock'] as int) +
+              (producto['cantidadAReabastecer'] as int);
+
+          _productos[index]['unidadesPorCaja'] = (_productos[index]['unidadesPorCaja'] as int) +
+              (producto['cantidadAReabastecer'] as int);
+        }
+
+        // Update almacen stock - SUBTRACT from almacen
+        final int almacenIndex = _almacenProductos.indexWhere((p) => p['id'] == producto['id']);
+        if (almacenIndex != -1) {
+          _almacenProductos[almacenIndex]['almacenStock'] =
+              (_almacenProductos[almacenIndex]['almacenStock'] as int) -
+                  (producto['cantidadAReabastecer'] as int);
+        }
+      }
+
+      // Register the expense transaction for the restock
+      final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
+      final totalUnits = _calcularTotalUnidades();
+
+      // Create a detailed description with product names and their quantities
+      final List<String> detalles = _selectedForRestock.map((producto) {
+        return "${producto['nombre']} (${producto['cantidadAReabastecer']} uds)";
+      }).toList();
+
+      final String detalleProductos = detalles.join(", ");
+      final descripcion = 'Reabastecimiento: $totalUnits uds - $detalleProductos';
+
+      // Make API call to create expense transaction
+      final transactionResponse = await http.post(
+        Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/transacciones'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'descripcion': descripcion,
+          'monto': _totalRestockCost,
+          'tipo': 'egreso',
+          'fecha': todayDate
+        }),
+      );
+
+      if (transactionResponse.statusCode != 201) {
+        print('Advertencia: La transacción financiera no se registró correctamente');
+      }
+
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      // Apply changes to filtered products
+      _filterProducts();
+
+      // Update the UI with new data
+      setState(() {
+        // Reset the selection
+        _selectedForRestock = [];
+        _totalRestockCost = 0.0;
+
+        // Reset quantities to restock for all products
+        for (var producto in _almacenProductos) {
+          producto['cantidadAReabastecer'] = 0;
+        }
+
+        // Make sure filtered products are updated with current stock values
+        _filteredProducts = List.from(_filteredProducts);
+
+        // Make sure inventory displays are also updated
+        _initializeAllInventories();
+      });
+
+      // Show success message
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reabastecimiento completado con éxito'),
+          backgroundColor: Colors.green,
+          duration: Duration(seconds: 2),
+        ),
+      );
+
+      // Close the reabastecimiento dialog
+      Navigator.of(context).pop();
+    } catch (e) {
+      // Close loading dialog
+      Navigator.of(context).pop();
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al procesar el reabastecimiento: $e'),
+          backgroundColor: Colors.red,
+          duration: Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
 
 
   void _eliminarProducto(Map<String, dynamic> producto) {
@@ -535,6 +1428,13 @@ class _InventarioPageState extends State<InventarioPage> {
       groupedProducts[category]!.add(product);
     }
 
+    // Sort products within each category alphabetically by name
+    groupedProducts.forEach((category, productsList) {
+      productsList.sort((a, b) =>
+          a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase())
+      );
+    });
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: groupedProducts.entries.map((entry) {
@@ -572,7 +1472,6 @@ class _InventarioPageState extends State<InventarioPage> {
       }).toList(),
     );
   }
-
 
   @override
   Widget build(BuildContext context) {
@@ -615,6 +1514,25 @@ class _InventarioPageState extends State<InventarioPage> {
           onPressed: () => Navigator.pop(context),
         ),
         actions: [
+          // Nuevo botón de Reabastecimiento
+          TextButton.icon(
+            onPressed: _mostrarVistaReabastecimiento,
+            icon: Icon(Icons.inventory, color: white),
+            label: Text(
+              'Reabastecer',
+              style: TextStyle(color: white, fontSize: 16),
+            ),
+            style: TextButton.styleFrom(
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+            ),
+          ),
+          const VerticalDivider(
+            color: Colors.white54,
+            width: 1,
+            thickness: 1,
+            indent: 12,
+            endIndent: 12,
+          ),
           PopupMenuButton<void>(
             icon: Row(
               mainAxisSize: MainAxisSize.min,
@@ -992,13 +1910,13 @@ class _InventarioPageState extends State<InventarioPage> {
                       title: Text('Editar'),
                     ),
                   ),
-                  const PopupMenuItem<String>(
-                    value: 'restock',
-                    child: ListTile(
-                      leading: Icon(Icons.add_shopping_cart, color: primaryBlue),
-                      title: Text('Reabastecer'),
-                    ),
-                  ),
+                  // const PopupMenuItem<String>(
+                  //   value: 'restock',
+                  //   child: ListTile(
+                  //     leading: Icon(Icons.add_shopping_cart, color: primaryBlue),
+                  //     title: Text('Reabastecer'),
+                  //   ),
+                  // ),
                   const PopupMenuItem<String>(
                     value: 'delete',
                     child: ListTile(

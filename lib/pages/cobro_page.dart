@@ -685,11 +685,272 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     );
   }
 
-  void _confirmarVenta() async {
+  void _confirmarVenta() {
     if (_carritoActivo == -1 || _carritos[_carritoActivo].isEmpty) {
       _mostrarNotificacion('No hay productos en el carrito', isError: true);
       return;
     }
+
+    final double total = _calcularTotal();
+
+    // Cerrar el modal de carrito y mostrar el procesamiento de pago
+    Navigator.of(context).pop();
+    _mostrarDialogoPago(total);
+  }
+
+  void _mostrarDialogoPago(double total) {
+    final TextEditingController montoEntregadoController = TextEditingController();
+    double cambio = 0.0;
+    bool mostrarCambio = false;
+
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return StatefulBuilder(
+            builder: (context, setState) {
+              return Dialog(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+                elevation: 0,
+                backgroundColor: Colors.white,
+                child: Container(
+                  width: MediaQuery.of(context).size.width * 0.85,
+                  padding: const EdgeInsets.all(24),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Título
+                      Text(
+                        'Procesar pago',
+                        style: GoogleFonts.montserrat(
+                          fontSize: 22,
+                          fontWeight: FontWeight.bold,
+                          color: _colorScheme.primary,
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Resumen de la compra
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: _colorScheme.secondaryContainer,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            // Lista de productos reducida
+                            ListView.builder(
+                                shrinkWrap: true,
+                                physics: const NeverScrollableScrollPhysics(),
+                                itemCount: _carritos[_carritoActivo].length > 3 ? 3 : _carritos[_carritoActivo].length,
+                                itemBuilder: (context, index) {
+                                  final entry = _carritos[_carritoActivo].entries.elementAt(index);
+                                  final producto = _productos.firstWhere((p) => p['nombre'] == entry.key);
+                                  final precio = producto['precio'] as double;
+
+                                  return Padding(
+                                    padding: const EdgeInsets.symmetric(vertical: 4),
+                                    child: Row(
+                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            '${entry.value} x ${entry.key}',
+                                            style: GoogleFonts.montserrat(fontSize: 14),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                          ),
+                                        ),
+                                        Text(
+                                          '\$${(precio * entry.value).toStringAsFixed(2)}',
+                                          style: GoogleFonts.montserrat(
+                                            fontSize: 14,
+                                            fontWeight: FontWeight.w500,
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  );
+                                }
+                            ),
+
+                            // Si hay más productos
+                            if (_carritos[_carritoActivo].length > 3)
+                              Padding(
+                                padding: const EdgeInsets.only(top: 4),
+                                child: Text(
+                                  '... y ${_carritos[_carritoActivo].length - 3} productos más',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 12,
+                                    color: Colors.grey[600],
+                                    fontStyle: FontStyle.italic,
+                                  ),
+                                ),
+                              ),
+
+                            const Divider(height: 24),
+
+                            // Total
+                            Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  'Total',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                                Text(
+                                  '\$${total.toStringAsFixed(2)}',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 18,
+                                    fontWeight: FontWeight.bold,
+                                    color: _colorScheme.primary,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 24),
+
+                      // Campo para monto entregado
+                      TextField(
+                        controller: montoEntregadoController,
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        decoration: InputDecoration(
+                          labelText: 'Monto entregado por el cliente',
+                          prefixIcon: Icon(Icons.paid, color: _colorScheme.primary),
+                          border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: _colorScheme.primary, width: 2),
+                          ),
+                        ),
+                        onChanged: (value) {
+                          setState(() {
+                            if (value.isNotEmpty) {
+                              try {
+                                final montoEntregado = double.parse(value);
+                                cambio = montoEntregado - total;
+                                mostrarCambio = true;
+                              } catch (e) {
+                                mostrarCambio = false;
+                              }
+                            } else {
+                              mostrarCambio = false;
+                            }
+                          });
+                        },
+                      ),
+
+                      // Mostrar cambio si aplica
+                      if (mostrarCambio)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 16),
+                          child: Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: cambio >= 0 ? Colors.green.shade50 : Colors.red.shade50,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: cambio >= 0 ? Colors.green.shade300 : Colors.red.shade300,
+                              ),
+                            ),
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                              children: [
+                                Text(
+                                  cambio >= 0 ? 'Cambio a devolver:' : 'Falta por pagar:',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 14,
+                                    fontWeight: FontWeight.w600,
+                                    color: cambio >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                  ),
+                                ),
+                                Text(
+                                  '\$${cambio.abs().toStringAsFixed(2)}',
+                                  style: GoogleFonts.montserrat(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.bold,
+                                    color: cambio >= 0 ? Colors.green.shade700 : Colors.red.shade700,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                      const SizedBox(height: 32),
+
+                      // Botones
+                      Row(
+                        children: [
+                          // Botón cancelar
+                          Expanded(
+                            child: OutlinedButton(
+                              onPressed: () => Navigator.of(context).pop(),
+                              style: OutlinedButton.styleFrom(
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                side: BorderSide(color: _colorScheme.primary),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                              ),
+                              child: Text(
+                                'Cancelar',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                  color: _colorScheme.primary,
+                                ),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(width: 16),
+
+                          // Botón confirmar
+                          Expanded(
+                            child: ElevatedButton(
+                              onPressed: mostrarCambio && cambio >= 0
+                                  ? () => _procesarVentaFinal(total, double.parse(montoEntregadoController.text), cambio)
+                                  : null,
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _colorScheme.primary,
+                                foregroundColor: Colors.white,
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(15),
+                                ),
+                                padding: const EdgeInsets.symmetric(vertical: 16),
+                                elevation: 0,
+                              ),
+                              child: Text(
+                                'Confirmar Venta',
+                                style: GoogleFonts.montserrat(
+                                  fontSize: 16,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              );
+            }
+        );
+      },
+    );
+  }
+
+  void _procesarVentaFinal(double total, double montoEntregado, double cambio) async {
+    Navigator.of(context).pop(); // Close payment dialog
 
     showDialog(
       context: context,
@@ -733,7 +994,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     );
 
     try {
-      final idVenta = DateTime.now().millisecondsSinceEpoch % 1000000; // Reduced to 6 digits for SQL Int
+      final idVenta = DateTime.now().millisecondsSinceEpoch % 1000000; // Reduced to 6 digits
       final fechaVenta = DateTime.now().toIso8601String().split('T')[0]; // YYYY-MM-DD format
       bool hasError = false;
 
@@ -785,6 +1046,31 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         }
       }
 
+      // Create a detailed description with product names and quantities
+      final List<String> detalles = _carritos[_carritoActivo].entries.map((entry) {
+        return "${entry.key} (${entry.value} uds)";
+      }).toList();
+
+      final String detalleProductos = detalles.join(", ");
+      final descripcionVenta = "Venta #$idVenta - $detalleProductos";
+
+      // Register the transaction as an income with detailed description
+      final transaccionResponse = await http.post(
+        Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/transacciones'),
+        headers: {'Content-Type': 'application/json'},
+        body: json.encode({
+          'descripcion': descripcionVenta,
+          'monto': total,
+          'tipo': 'ingreso',
+          'fecha': fechaVenta
+        }),
+      );
+
+      if (transaccionResponse.statusCode != 201) {
+        print('Error registrando transacción: ${transaccionResponse.body}');
+        // Continue with the process even if transaction record fails
+      }
+//
       if (!hasError) {
         // Instead of manually updating stock, reload products from the API
         _vaciarCarrito();
@@ -802,9 +1088,8 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         _loadProductos();
 
         Navigator.of(context).pop(); // Close loading dialog
-        Navigator.of(context).pop(); // Close cart modal
-        _mostrarDialogoExito();
-      }else {
+        _mostrarDialogoExitoConCambio(total, montoEntregado, cambio);
+      } else {
         throw Exception('Error al registrar las ventas en el servidor');
       }
     } catch (e) {
@@ -813,7 +1098,6 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
       print('Error en venta: $e');
     }
   }
-
 // Método auxiliar para mostrar el diálogo de éxito
   void _mostrarDialogoExito() {
     showDialog(
@@ -892,7 +1176,126 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         }
     );
   }
+  void _mostrarDialogoExitoConCambio(double total, double montoEntregado, double cambio) {
+    showDialog(
+        context: context,
+        builder: (BuildContext context) {
+          return Dialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            elevation: 0,
+            backgroundColor: Colors.transparent,
+            child: Container(
+              padding: const EdgeInsets.all(24),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                shape: BoxShape.rectangle,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: const [
+                  BoxShadow(
+                    color: Colors.black26,
+                    blurRadius: 10.0,
+                    offset: Offset(0.0, 10.0),
+                  ),
+                ],
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    Icons.check_circle_outline,
+                    color: _colorScheme.primary,
+                    size: 80,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    '¡Venta Exitosa!',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: _colorScheme.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'La transacción se ha completado correctamente',
+                    textAlign: TextAlign.center,
+                    style: GoogleFonts.montserrat(
+                      fontSize: 14,
+                      color: Colors.grey[600],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  // Información del pago
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      color: _colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Column(
+                      children: [
+                        _buildPaymentInfoRow('Total', '\$${total.toStringAsFixed(2)}'),
+                        const SizedBox(height: 8),
+                        _buildPaymentInfoRow('Monto entregado', '\$${montoEntregado.toStringAsFixed(2)}'),
+                        const Divider(height: 16),
+                        _buildPaymentInfoRow('Cambio', '\$${cambio.toStringAsFixed(2)}',
+                            isHighlighted: true),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () {
+                      Navigator.of(context).pop();
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _colorScheme.primary,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(15),
+                      ),
+                      padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 16),
+                      elevation: 0,
+                    ),
+                    child: Text(
+                      'Aceptar',
+                      style: GoogleFonts.montserrat(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          );
+        }
+    );
+  }
 
+  Widget _buildPaymentInfoRow(String label, String value, {bool isHighlighted = false}) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: GoogleFonts.montserrat(
+            fontSize: isHighlighted ? 16 : 14,
+            fontWeight: isHighlighted ? FontWeight.w600 : FontWeight.w500,
+            color: isHighlighted ? _colorScheme.primary : Colors.grey[700],
+          ),
+        ),
+        Text(
+          value,
+          style: GoogleFonts.montserrat(
+            fontSize: isHighlighted ? 18 : 14,
+            fontWeight: FontWeight.bold,
+            color: isHighlighted ? _colorScheme.primary : Colors.grey[800],
+          ),
+        ),
+      ],
+    );
+  }
   @override
   Widget build(BuildContext context) {
     final textTheme = GoogleFonts.montserratTextTheme(Theme.of(context).textTheme);

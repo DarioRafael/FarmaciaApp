@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
+import 'package:flutter/services.dart';
+import 'package:intl/date_symbol_data_local.dart';
 
 class CajaPage extends StatefulWidget {
   const CajaPage({super.key});
@@ -10,7 +12,7 @@ class CajaPage extends StatefulWidget {
   State<CajaPage> createState() => _CajaPageState();
 }
 
-class _CajaPageState extends State<CajaPage> {
+class _CajaPageState extends State<CajaPage> with SingleTickerProviderStateMixin {
   double availableMoney = 0.0;
   double ingresos = 0.0;
   double egresos = 0.0;
@@ -22,33 +24,68 @@ class _CajaPageState extends State<CajaPage> {
   bool _isSalesExpanded = false;
   bool _isRestockExpanded = false;
 
+  late TabController _tabController;
+  final ScrollController _scrollController = ScrollController();
+  bool _isScrolled = false;
+
+  // Paleta de colores elegante
+  final Color primaryColor = const Color(0xFF0D47A1); // Azul oscuro
+  final Color secondaryColor = const Color(0xFF2196F3); // Azul claro
+  final Color accentColor = const Color(0xFF64B5F6); // Azul muy claro
+  final Color backgroundColor = const Color(0xFFF5F9FF); // Blanco azulado
+  final Color cardColor = Colors.white;
+
   @override
   void initState() {
     super.initState();
+    initializeDateFormatting('es');  // Initialize Spanish locale
+    _tabController = TabController(length: 3, vsync: this);
+    _scrollController.addListener(_scrollListener);
     _fetchSaldo();
     _fetchTransactions();
+
+    // Configurar tema de la barra de estado para mejor integración
+    SystemChrome.setSystemUIOverlayStyle(SystemUiOverlayStyle(
+      statusBarColor: Colors.transparent,
+      statusBarIconBrightness: Brightness.light,
+    ));
+  }
+
+  void _scrollListener() {
+    if (_scrollController.offset > 20 && !_isScrolled) {
+      setState(() {
+        _isScrolled = true;
+      });
+    } else if (_scrollController.offset <= 20 && _isScrolled) {
+      setState(() {
+        _isScrolled = false;
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    _scrollController.dispose();
+    super.dispose();
   }
 
   Future<void> _fetchSaldo() async {
-    const String baseUrl = 'https://modelo-server.vercel.app/api/v1';
+    const String baseUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1';
     const String saldoEndpoint = '/saldo';
 
     try {
       final response = await http.get(Uri.parse('$baseUrl$saldoEndpoint'));
 
       if (response.statusCode == 200) {
-        // Verifica la respuesta antes de intentar decodificarla
         final dynamic data = json.decode(response.body);
-
-        // Agrega un log para ver qué tipo de datos estás recibiendo
         print('Respuesta recibida: $data');
 
-        // Cambia la verificación para aceptar un objeto en lugar de una lista
-        if (data is Map<String, dynamic> && data.containsKey('baseSaldo')) {
+        if (data is Map<String, dynamic> && data.containsKey('saldo')) {
           setState(() {
-            availableMoney = data['baseSaldo'].toDouble();
-            ingresos = data['totalIngresos'].toDouble();
-            egresos = data['totalEgresos'].toDouble();
+            availableMoney = data['saldo'].toDouble();
+            ingresos = data['ingresos'].toDouble();
+            egresos = data['egresos'].toDouble();
             isLoading = false;
           });
         } else {
@@ -61,15 +98,13 @@ class _CajaPageState extends State<CajaPage> {
       setState(() {
         isLoading = false;
       });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error al cargar el saldo: $e')),
-      );
+      _showErrorSnackbar('Error al cargar el saldo: $e');
     }
   }
 
   Future<void> _fetchTransactions() async {
-    const String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-    const String transactionsEndpoint = '/transacciones';
+    const String baseUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1';
+    const String transactionsEndpoint = '/transaccionesGet';
 
     try {
       final response = await http.get(Uri.parse('$baseUrl$transactionsEndpoint'));
@@ -98,6 +133,11 @@ class _CajaPageState extends State<CajaPage> {
             restockTransactions = transactions
                 .where((t) => t.type == TransactionType.expense)
                 .toList();
+
+            // Ordenar todas las transacciones por fecha más reciente
+            transactions.sort((a, b) => b.date.compareTo(a.date));
+            salesTransactions.sort((a, b) => b.date.compareTo(a.date));
+            restockTransactions.sort((a, b) => b.date.compareTo(a.date));
           });
         } else {
           throw Exception('Unexpected format or "transacciones" field not found');
@@ -106,27 +146,323 @@ class _CajaPageState extends State<CajaPage> {
         throw Exception('Failed to load transactions');
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Error loading transactions: $e')),
-      );
+      _showErrorSnackbar('Error loading transactions: $e');
     }
   }
 
-
-
+  void _showErrorSnackbar(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red[700],
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(10),
+        ),
+        margin: EdgeInsets.all(10),
+        duration: Duration(seconds: 4),
+        action: SnackBarAction(
+          label: 'OK',
+          textColor: Colors.white,
+          onPressed: () {
+            ScaffoldMessenger.of(context).hideCurrentSnackBar();
+          },
+        ),
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Control de Caja'),
-        leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
-          onPressed: () => Navigator.pop(context),
+    return Theme(
+      data: ThemeData(
+        primaryColor: primaryColor,
+        scaffoldBackgroundColor: backgroundColor,
+        appBarTheme: AppBarTheme(
+          backgroundColor: primaryColor,
+          foregroundColor: Colors.white,
+          elevation: 0,
         ),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.refresh),
+        cardTheme: CardTheme(
+          color: cardColor,
+          elevation: 3,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+        ),
+        tabBarTheme: TabBarTheme(
+          labelColor: Colors.white,
+          unselectedLabelColor: Colors.white70,
+          indicatorSize: TabBarIndicatorSize.tab,
+          labelStyle: TextStyle(fontWeight: FontWeight.bold),
+        ),
+      ),
+      child: Scaffold(
+        body: NestedScrollView(
+          controller: _scrollController,
+          headerSliverBuilder: (context, innerBoxIsScrolled) {
+            return [
+              SliverAppBar(
+                expandedHeight: 210,
+                floating: false,
+                pinned: true,
+                elevation: _isScrolled ? 4 : 0,
+                backgroundColor: primaryColor,
+                flexibleSpace: FlexibleSpaceBar(
+                  background: _buildBalanceHeader(),
+                ),
+                title: _isScrolled
+                    ? Text('Control de Caja',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 20
+                    )
+                )
+                    : null,
+                leading: IconButton(
+                  icon: const Icon(Icons.arrow_back, color: Colors.white),
+                  onPressed: () => Navigator.pop(context),
+                ),
+                actions: [
+                  IconButton(
+                    icon: const Icon(Icons.refresh, color: Colors.white),
+                    onPressed: () {
+                      setState(() {
+                        isLoading = true;
+                      });
+                      _fetchSaldo();
+                      _fetchTransactions();
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Actualizando datos...'),
+                          duration: Duration(seconds: 1),
+                          backgroundColor: accentColor,
+                          behavior: SnackBarBehavior.floating,
+                        ),
+                      );
+                    },
+                  ),
+                ],
+                bottom: TabBar(
+                  controller: _tabController,
+                  indicatorColor: Colors.white,
+                  indicatorWeight: 3,
+                  tabs: [
+                    Tab(text: 'Recientes'),
+                    Tab(text: 'Ventas'),
+                    Tab(text: 'Egresos'),
+                  ],
+                ),
+              ),
+            ];
+          },
+          body: TabBarView(
+            controller: _tabController,
+            children: [
+              _buildRecentTransactionsList(),
+              _buildSalesTransactionsList(),
+              _buildRestockTransactionsList(),
+            ],
+          ),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            // Aquí se podría implementar la funcionalidad para agregar una nueva transacción
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Nueva transacción'),
+                behavior: SnackBarBehavior.floating,
+                backgroundColor: primaryColor,
+              ),
+            );
+          },
+          backgroundColor: secondaryColor,
+          child: Icon(Icons.add),
+          elevation: 4,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceHeader() {
+    return Container(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topCenter,
+          end: Alignment.bottomCenter,
+          colors: [
+            primaryColor,
+            secondaryColor,
+          ],
+        ),
+      ),
+      child: SafeArea(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'Saldo Disponible',
+              style: TextStyle(
+                color: Colors.white70,
+                fontSize: 16,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+            const SizedBox(height: 8),
+            isLoading
+                ? CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+            )
+                : Text(
+              NumberFormat.currency(locale: 'es_MX', symbol: '\$')
+                  .format(availableMoney),
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 36,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+            const SizedBox(height: 24),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                _buildBalanceIndicator(
+                  title: 'Ingresos',
+                  amount: ingresos,
+                  icon: Icons.arrow_upward,
+                  color: Colors.green[400]!,
+                ),
+                Container(
+                  height: 40,
+                  width: 1,
+                  color: Colors.white24,
+                ),
+                _buildBalanceIndicator(
+                  title: 'Egresos',
+                  amount: egresos,
+                  icon: Icons.arrow_downward,
+                  color: Colors.red[400]!,
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildBalanceIndicator({
+    required String title,
+    required double amount,
+    required IconData icon,
+    required Color color,
+  }) {
+    return Column(
+      children: [
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, color: color, size: 16),
+            const SizedBox(width: 4),
+            Text(
+              title,
+              style: TextStyle(
+                color: Colors.white,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 4),
+        Text(
+          NumberFormat.currency(locale: 'es_MX', symbol: '\$').format(amount),
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildRecentTransactionsList() {
+    if (transactions.isEmpty) {
+      return _buildEmptyState('No hay transacciones recientes');
+    }
+
+    // Tomar solo las 10 transacciones más recientes para la pestaña de recientes
+    final recentTransactions = transactions.take(10).toList();
+
+    return _buildTransactionListView(
+      transactions: recentTransactions,
+      title: 'Transacciones Recientes',
+      emptyMessage: 'No hay transacciones recientes',
+    );
+  }
+
+  Widget _buildSalesTransactionsList() {
+    return _buildTransactionListView(
+      transactions: salesTransactions,
+      title: 'Ventas',
+      emptyMessage: 'No hay ventas registradas',
+    );
+  }
+
+  Widget _buildRestockTransactionsList() {
+    return _buildTransactionListView(
+      transactions: restockTransactions,
+      title: 'Egresos',
+      emptyMessage: 'No hay egresos registrados',
+    );
+  }
+
+  Widget _buildTransactionListView({
+    required List<Transaction> transactions,
+    required String title,
+    required String emptyMessage,
+  }) {
+    if (transactions.isEmpty) {
+      return _buildEmptyState(emptyMessage);
+    }
+
+    return Column(
+      children: [
+        Expanded(
+          child: ListView.builder(
+            padding: EdgeInsets.all(16),
+            itemCount: transactions.length,
+            itemBuilder: (context, index) {
+              final transaction = transactions[index];
+              return _buildEnhancedTransactionCard(transaction);
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildEmptyState(String message) {
+    return Center(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.account_balance_wallet_outlined,
+            size: 80,
+            color: accentColor.withOpacity(0.5),
+          ),
+          SizedBox(height: 16),
+          Text(
+            message,
+            style: TextStyle(
+              fontSize: 18,
+              color: Colors.grey[600],
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 8),
+          TextButton.icon(
             onPressed: () {
               setState(() {
                 isLoading = true;
@@ -134,436 +470,333 @@ class _CajaPageState extends State<CajaPage> {
               _fetchSaldo();
               _fetchTransactions();
             },
+            icon: Icon(Icons.refresh, color: secondaryColor),
+            label: Text(
+              'Actualizar',
+              style: TextStyle(color: secondaryColor),
+            ),
           ),
         ],
       ),
-      body: SafeArea(
-        child: CustomScrollView(
-          slivers: [
-            SliverToBoxAdapter(
-              child: _buildBalanceCard(),
-            ),
-            SliverToBoxAdapter(
-              child: _buildSummary(),
-            ),
-            SliverPadding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              sliver: SliverToBoxAdapter(
-                child: _buildTransactionSections(),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-//comienza
-  Widget _buildTransactionSections() {
-    // Ordenar todas las transacciones por fecha más reciente
-    transactions.sort((a, b) => b.date.compareTo(a.date));
-
-    // Tomar solo las 5 transacciones más recientes
-    final recentTransactions = transactions.take(5).toList();
-
-    return Column(
-      children: [
-        // Nueva sección de transacciones recientes
-        if (recentTransactions.isNotEmpty) // Solo mostrar si hay transacciones
-          Container(
-            margin: const EdgeInsets.only(bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
-                  child: Text(
-                    'Transacciones Recientes',
-                    style: TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.bold,
-                      color: Theme.of(context).primaryColor,
-                    ),
-                  ),
-                ),
-                ...recentTransactions.map((transaction) =>
-                    _TransactionCard(transaction: transaction)
-                ),
-              ],
-            ),
-          ),
-
-        // Resto del código permanece igual...
-        _buildExpandableSection(
-          title: 'Ventas',
-          count: salesTransactions.length,
-          isExpanded: _isSalesExpanded,
-          transactions: salesTransactions,
-          onTap: () => setState(() {
-            _isSalesExpanded = !_isSalesExpanded;
-            _isRestockExpanded = false;
-          }),
-        ),
-        const SizedBox(height: 16),
-        _buildExpandableSection(
-          title: 'Reabastecimientos',
-          count: restockTransactions.length,
-          isExpanded: _isRestockExpanded,
-          transactions: restockTransactions,
-          onTap: () => setState(() {
-            _isRestockExpanded = !_isRestockExpanded;
-            _isSalesExpanded = false;
-          }),
-        ),
-      ],
     );
   }
 
-  Widget _buildExpandableSection({
-    required String title,
-    required int count,
-    required bool isExpanded,
-    required List<Transaction> transactions,
-    required VoidCallback onTap,
-  }) {
-    // Ordenar transacciones de más reciente a más antigua
-    transactions.sort((a, b) => b.date.compareTo(a.date));
+  Widget _buildEnhancedTransactionCard(Transaction transaction) {
+    // Formato para la fecha más detallado
+    String dateFormatted = DateFormat('dd MMM yyyy', 'es').format(transaction.date);
+    String timeFormatted = DateFormat('HH:mm', 'es').format(transaction.date);
 
-    // Número de transacciones a mostrar inicialmente
-    const int initialTransactionsToShow = 10;
+    // Colores según el tipo de transacción
+    Color typeColor = transaction.type == TransactionType.income
+        ? Colors.green[700]!
+        : Colors.red[700]!;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
+    Color bgColor = transaction.type == TransactionType.income
+        ? Colors.green[50]!
+        : Colors.red[50]!;
+
+    return Card(
+      margin: EdgeInsets.only(bottom: 12),
+      elevation: 2,
+      shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
+        side: BorderSide(
+          color: typeColor.withOpacity(0.2),
+          width: 1,
+        ),
       ),
-      child: Column(
-        children: [
-          ListTile(
-            title: Text(
-              title,
-              style: const TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+      child: InkWell(
+        onTap: () {
+          // Mostrar detalles adicionales de la transacción
+          _showTransactionDetails(transaction);
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: EdgeInsets.all(16),
+          child: Row(
+            children: [
+              // Icono circular con fondo
+              Container(
+                width: 50,
+                height: 50,
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  transaction.type == TransactionType.income
+                      ? Icons.arrow_upward
+                      : Icons.arrow_downward,
+                  color: typeColor,
+                  size: 24,
+                ),
               ),
-            ),
-            trailing: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '$count',
+              SizedBox(width: 16),
+              // Información de la transacción
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      transaction.description,
+                      style: TextStyle(
+                        fontWeight: FontWeight.bold,
+                        fontSize: 16,
+                        color: Colors.grey[800],
+                      ),
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.calendar_today, size: 12, color: Colors.grey[600]),
+                        SizedBox(width: 4),
+                        Text(
+                          dateFormatted,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                        SizedBox(width: 12),
+                        Icon(Icons.access_time, size: 12, color: Colors.grey[600]),
+                        SizedBox(width: 4),
+                        Text(
+                          timeFormatted,
+                          style: TextStyle(
+                            color: Colors.grey[600],
+                            fontSize: 13,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              // Monto
+              Container(
+                padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                decoration: BoxDecoration(
+                  color: bgColor,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  NumberFormat.currency(
+                    locale: 'es_MX',
+                    symbol: '\$',
+                  ).format(transaction.amount),
                   style: TextStyle(
-                    color: Theme.of(context).primaryColor,
+                    color: typeColor,
                     fontWeight: FontWeight.bold,
+                    fontSize: 16,
                   ),
                 ),
-                IconButton(
-                  icon: Icon(
-                    isExpanded
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: Theme.of(context).primaryColor,
-                  ),
-                  onPressed: onTap,
-                ),
-              ],
-            ),
-          ),
-          if (isExpanded) ...[
-            const Divider(),
-            ListView.builder(
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              itemCount:
-              // Si hay más de 10 transacciones, mostrar 10 + botón de cargar más
-              transactions.length > initialTransactionsToShow
-                  ? initialTransactionsToShow + 1
-                  : transactions.length,
-              itemBuilder: (context, index) {
-                // Si es el último índice y hay más transacciones, mostrar botón de cargar más
-                if (transactions.length > initialTransactionsToShow &&
-                    index == initialTransactionsToShow) {
-                  return _buildLoadMoreButton(title, transactions);
-                }
-
-                // Mostrar transacciones normalmente
-                final transaction = transactions[index];
-                return _TransactionCard(transaction: transaction);
-              },
-            ),
-          ],
-        ],
-      ),
-    );
-  }
-
-// Nuevo método para construir el botón de "Cargar más"
-  Widget _buildLoadMoreButton(String title, List<Transaction> allTransactions) {
-    return InkWell(
-      onTap: () {
-        // Aquí podrías implementar una modal o una nueva pantalla para mostrar todas las transacciones
-        _showAllTransactionsModal(title, allTransactions);
-      },
-      child: Container(
-        padding: const EdgeInsets.all(16),
-        alignment: Alignment.center,
-        child: Text(
-          'Cargar más transacciones',
-          style: TextStyle(
-            color: Theme.of(context).primaryColor,
-            fontWeight: FontWeight.bold,
+              ),
+            ],
           ),
         ),
       ),
     );
   }
 
-// Método para mostrar un modal con todas las transacciones
-  void _showAllTransactionsModal(String title, List<Transaction> transactions) {
+  void _showTransactionDetails(Transaction transaction) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
+      backgroundColor: Colors.transparent,
       builder: (BuildContext context) {
-        return DraggableScrollableSheet(
-          initialChildSize: 0.9,
-          minChildSize: 0.5,
-          maxChildSize: 0.95,
-          builder: (_, controller) => Container(
-            decoration: const BoxDecoration(
-              color: Colors.white,
-              borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-            ),
-            child: Column(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.all(16.0),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        return Container(
+          height: MediaQuery.of(context).size.height * 0.7,
+          decoration: BoxDecoration(
+            color: backgroundColor,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black26,
+                blurRadius: 10,
+                spreadRadius: 0,
+                offset: Offset(0, -1),
+              ),
+            ],
+          ),
+          child: Column(
+            children: [
+              // Indicador de arrastre
+              Container(
+                height: 5,
+                width: 40,
+                margin: EdgeInsets.only(top: 16, bottom: 8),
+                decoration: BoxDecoration(
+                  color: Colors.grey[300],
+                  borderRadius: BorderRadius.circular(5),
+                ),
+              ),
+
+              // Título
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Text(
+                  "Detalles de la Transacción",
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                    color: primaryColor,
+                  ),
+                ),
+              ),
+
+              Divider(),
+
+              // Contenido
+              Expanded(
+                child: SingleChildScrollView(
+                  padding: EdgeInsets.all(24),
+                  child: Column(
                     children: [
-                      Text(
-                        '$title (${transactions.length})',
-                        style: const TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
+                      // Tipo y Monto
+                      Container(
+                        padding: EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: transaction.type == TransactionType.income
+                              ? Colors.green[50]
+                              : Colors.red[50],
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Column(
+                          children: [
+                            Icon(
+                              transaction.type == TransactionType.income
+                                  ? Icons.arrow_upward
+                                  : Icons.arrow_downward,
+                              color: transaction.type == TransactionType.income
+                                  ? Colors.green[700]
+                                  : Colors.red[700],
+                              size: 40,
+                            ),
+                            SizedBox(height: 8),
+                            Text(
+                              transaction.type == TransactionType.income
+                                  ? "Ingreso"
+                                  : "Egreso",
+                              style: TextStyle(
+                                fontSize: 16,
+                                color: Colors.grey[700],
+                              ),
+                            ),
+                            SizedBox(height: 12),
+                            Text(
+                              NumberFormat.currency(
+                                locale: 'es_MX',
+                                symbol: '\$',
+                              ).format(transaction.amount),
+                              style: TextStyle(
+                                fontSize: 28,
+                                fontWeight: FontWeight.bold,
+                                color: transaction.type == TransactionType.income
+                                    ? Colors.green[700]
+                                    : Colors.red[700],
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                      IconButton(
-                        icon: Icon(Icons.close, color: Theme.of(context).primaryColor),
-                        onPressed: () => Navigator.pop(context),
+
+                      SizedBox(height: 24),
+
+                      // Detalles
+                      _buildDetailItem(
+                        "Descripción",
+                        transaction.description,
+                        Icons.description,
+                      ),
+
+                      _buildDetailItem(
+                        "Fecha",
+                        DateFormat('dd MMMM yyyy', 'es').format(transaction.date),
+                        Icons.calendar_today,
+                      ),
+
+                      _buildDetailItem(
+                        "Hora",
+                        DateFormat('HH:mm:ss', 'es').format(transaction.date),
+                        Icons.access_time,
+                      ),
+
+                      _buildDetailItem(
+                        "ID de Transacción",
+                        transaction.id,
+                        Icons.fingerprint,
                       ),
                     ],
                   ),
                 ),
-                Expanded(
-                  child: ListView.builder(
-                    controller: controller,
-                    itemCount: transactions.length,
-                    itemBuilder: (context, index) {
-                      final transaction = transactions[index];
-                      return _TransactionCard(transaction: transaction);
-                    },
-                  ),
+              ),
+
+              // Botones de acción
+              Padding(
+                padding: EdgeInsets.all(16),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: () {
+                          Navigator.pop(context);
+                        },
+                        icon: Icon(Icons.close),
+                        label: Text("Cerrar"),
+                        style: OutlinedButton.styleFrom(
+                          padding: EdgeInsets.symmetric(vertical: 12),
+                          foregroundColor: primaryColor,
+                          side: BorderSide(color: primaryColor),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ],
-            ),
+              ),
+            ],
           ),
         );
       },
     );
   }
 
-  Widget _buildBalanceCard() {
-    return Container(
-      margin: const EdgeInsets.symmetric(horizontal: 16),
-      padding: const EdgeInsets.all(24),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            Theme.of(context).primaryColor,
-            Theme.of(context).primaryColor.withOpacity(0.8),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.3),
-            spreadRadius: 2,
-            blurRadius: 8,
-            offset: const Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Text(
-            'Saldo Disponible',
-            style: TextStyle(
-              color: Colors.white70,
-              fontSize: 16,
-            ),
-          ),
-          const SizedBox(height: 8),
-          isLoading
-              ? const CircularProgressIndicator(color: Colors.white)
-              : Text(
-            NumberFormat.currency(locale: 'es_MX', symbol: '\$')
-                .format(availableMoney),
-            style: const TextStyle(
-              color: Colors.white,
-              fontSize: 36,
-              fontWeight: FontWeight.bold,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSummary() {
+  Widget _buildDetailItem(String title, String value, IconData icon) {
     return Padding(
-      padding: const EdgeInsets.all(16),
+      padding: EdgeInsets.only(bottom: 16),
       child: Row(
-        children: [
-          Expanded(
-            child: _SummaryCard(
-              title: 'Ingresos',
-              amount: ingresos,
-              icon: Icons.arrow_upward,
-              color: Colors.green,
-            ),
-          ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: _SummaryCard(
-              title: 'Egresos',
-              amount: egresos,
-              icon: Icons.arrow_downward,
-              color: Colors.red,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildTransactionsList() {
-    return SliverList(
-      delegate: SliverChildBuilderDelegate(
-            (context, index) {
-          final transaction = transactions[index];
-          return _TransactionCard(transaction: transaction);
-        },
-        childCount: transactions.length,
-      ),
-    );
-  }
-}
-
-class _SummaryCard extends StatelessWidget {
-  final String title;
-  final double amount;
-  final IconData icon;
-  final Color color;
-
-  const _SummaryCard({
-    required this.title,
-    required this.amount,
-    required this.icon,
-    required this.color,
-  });//
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.grey.withOpacity(0.1),
-            spreadRadius: 1,
-            blurRadius: 4,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Icon(icon, color: color, size: 20),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: const TextStyle(
-                  fontSize: 14,
-                  color: Colors.grey,
+          Icon(icon, color: primaryColor, size: 20),
+          SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 14,
+                    color: Colors.grey[600],
+                  ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            NumberFormat.currency(locale: 'es_MX', symbol: '\$').format(amount),
-            style: const TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.bold,
+                SizedBox(height: 4),
+                Text(
+                  value,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.grey[800],
+                  ),
+                ),
+              ],
             ),
           ),
         ],
-      ),
-    );
-  }
-}
-
-class _TransactionCard extends StatelessWidget {
-  final Transaction transaction;
-
-  const _TransactionCard({required this.transaction});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8, left: 8, right: 8),
-      child: ListTile(
-        leading: CircleAvatar(
-          backgroundColor: transaction.type == TransactionType.income
-              ? Colors.green.withOpacity(0.1)
-              : Colors.red.withOpacity(0.1),
-          child: Icon(
-            transaction.type == TransactionType.income
-                ? Icons.arrow_upward
-                : Icons.arrow_downward,
-            color: transaction.type == TransactionType.income
-                ? Colors.green
-                : Colors.red,
-          ),
-        ),
-        title: Text(transaction.description),
-        subtitle: Text(
-          DateFormat('dd/MM/yyyy').format(transaction.date),
-          style: const TextStyle(fontSize: 12),
-        ),
-        trailing: Text(
-          NumberFormat.currency(locale: 'es_MX', symbol: '\$')
-              .format(transaction.amount),
-          style: TextStyle(
-            color: transaction.type == TransactionType.income
-                ? Colors.green
-                : Colors.red,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
       ),
     );
   }
