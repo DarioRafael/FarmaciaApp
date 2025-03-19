@@ -3,6 +3,7 @@ import 'package:responsive_framework/responsive_framework.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
+import 'dart:math';
 
 class CobroPage extends StatefulWidget {
   const CobroPage({super.key});
@@ -46,7 +47,10 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
   // API URL
   final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
 
-
+  // New pagination variables
+  int _currentPage = 0;
+  int _itemsPerPage = 10;
+  int _totalPages = 0;
 
   // Esquema de colores refinado para blanco con azul elegante
   final ColorScheme _colorScheme = ColorScheme.fromSeed(
@@ -91,6 +95,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     super.dispose();
   }
 
+  // Modified fetchProductosFromAPI to include pagination update
   Future<void> _fetchProductosFromAPI() async {
     setState(() {
       _isLoading = true;
@@ -105,12 +110,12 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         // Transform API data and sort alphabetically
         _productos = jsonData.map((medicamento) {
           return {
-            'id': medicamento['ID'], // Add this line to include the ID
+            'id': medicamento['ID'],
             'nombre': medicamento['NombreMedico'],
             'nombreGenerico': medicamento['NombreGenerico'],
             'categoria': _determinarCategoria(medicamento['FormaFarmaceutica']),
             'precio': medicamento['Precio'],
-            'stock': medicamento['UnidadesPorCaja'],
+            'stock': medicamento['Stock'],
             'color': _obtenerColorPorCategoria(medicamento['FormaFarmaceutica']),
             'fabricante': medicamento['Fabricante'],
             'contenido': medicamento['Contenido'],
@@ -122,6 +127,7 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
         // Update filtered products
         _productosFiltrados = List.from(_productos);
         _extraerCategorias();
+        _updateTotalPages();
       } else {
         _mostrarNotificacion('Error al cargar productos: ${response.statusCode}', isError: true);
       }
@@ -134,12 +140,95 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     }
   }
 
+  // New method to get current page items
+  List<Map<String, dynamic>> _getCurrentPageItems() {
+    if (_productosFiltrados.isEmpty) return [];
+
+    final startIndex = _currentPage * _itemsPerPage;
+    final endIndex = min(startIndex + _itemsPerPage, _productosFiltrados.length);
+
+    if (startIndex >= _productosFiltrados.length) return [];
+    return _productosFiltrados.sublist(startIndex, endIndex);
+  }
+
+  // Pagination widget
+  Widget _buildPagination() {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Row(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          IconButton(
+            icon: Icon(Icons.chevron_left, color: _currentPage > 0 ? _colorScheme.primary : Colors.grey),
+            onPressed: _currentPage > 0
+                ? () => setState(() => _currentPage--)
+                : null,
+          ),
+
+          // Show page numbers with a scrolling effect if too many
+          Container(
+            height: 40,
+            constraints: const BoxConstraints(maxWidth: 300),
+            child: ListView.builder(
+              scrollDirection: Axis.horizontal,
+              itemCount: _totalPages,
+              itemBuilder: (context, index) {
+                final isCurrentPage = index == _currentPage;
+                return InkWell(
+                  onTap: () => setState(() => _currentPage = index),
+                  child: Container(
+                    width: 40,
+                    alignment: Alignment.center,
+                    margin: const EdgeInsets.symmetric(horizontal: 4),
+                    decoration: BoxDecoration(
+                      color: isCurrentPage ? _colorScheme.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(20),
+                    ),
+                    child: Text(
+                      '${index + 1}',
+                      style: TextStyle(
+                        color: isCurrentPage ? Colors.white : _colorScheme.primary,
+                        fontWeight: isCurrentPage ? FontWeight.bold : FontWeight.normal,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+
+          IconButton(
+            icon: Icon(Icons.chevron_right,
+                color: _currentPage < _totalPages - 1 ? _colorScheme.primary : Colors.grey),
+            onPressed: _currentPage < _totalPages - 1
+                ? () => setState(() => _currentPage++)
+                : null,
+          ),
+        ],
+      ),
+    );
+  }
+
 // Helper methods
   String _determinarCategoria(String formaFarmaceutica) {
     final formaLower = formaFarmaceutica.toLowerCase();
-    if (formaLower.contains('pastilla') || formaLower.contains('tableta') || formaLower.contains('cápsula')) {
+    if (formaLower.contains('pastilla') || formaLower.contains('tableta')) {
       return 'Tabletas';
-    } else if (formaLower.contains('bebibles') || formaLower.contains('suspensión') || formaLower.contains('líquido')) {
+    } else if (formaLower.contains('cápsula') || formaLower.contains('capsula')) {
+      return 'Capsulas';
+    } else if (formaLower.contains('inyectable') || formaLower.contains('jeringa') || formaLower.contains('ampolla')) {
+      return 'Inyectables';
+    } else if (formaLower.contains('bebibles') || formaLower.contains('suspensión') || formaLower.contains('líquido') || formaLower.contains('jarabe')) {
       return 'Bebibles';
     } else {
       return 'Otros';
@@ -148,12 +237,17 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
 
   Color _obtenerColorPorCategoria(String formaFarmaceutica) {
     final categoria = _determinarCategoria(formaFarmaceutica);
-    if (categoria == 'Tabletas') {
-      return const Color(0xFFE3F2FD); // Light blue
-    } else if (categoria == 'Bebibles') {
-      return const Color(0xFFE8F5E9); // Light green
-    } else {
-      return const Color(0xFFFFF3E0); // Light orange
+    switch (categoria) {
+      case 'Tabletas':
+        return const Color(0xFFE3F2FD); // Light blue
+      case 'Capsulas':
+        return const Color(0xFFE1BEE7); // Light purple
+      case 'Inyectables':
+        return const Color(0xFFFFCCBC); // Light orange-red
+      case 'Bebibles':
+        return const Color(0xFFE8F5E9); // Light green
+      default:
+        return const Color(0xFFFFF3E0); // Light orange for Others
     }
   }
 
@@ -171,10 +265,11 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
 
   void _loadCategorias() {
     setState(() {
-      _categorias = ['Todos', 'Tabletas', 'Bebibles'];
+      _categorias = ['Todos', 'Tabletas', 'Capsulas', 'Inyectables', 'Bebibles', 'Otros'];
     });
   }
 
+  // Modified filter method with pagination update
   void _filtrarProductos() {
     setState(() {
       _query = _searchController.text;
@@ -192,7 +287,15 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
           return matchNombre && matchCategoria;
         }).toList();
       }
+      _currentPage = 0; // Reset to first page when filtering
+      _updateTotalPages();
     });
+  }
+
+  // New method to update total pages
+  void _updateTotalPages() {
+    _totalPages = (_productosFiltrados.length / _itemsPerPage).ceil();
+    if (_totalPages == 0) _totalPages = 1; // At least one page even if empty
   }
 
   void _mostrarNotificacion(String mensaje, {bool isError = false}) {
@@ -1297,36 +1400,96 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
     );
   }
   @override
+  @override
   Widget build(BuildContext context) {
     final textTheme = GoogleFonts.montserratTextTheme(Theme.of(context).textTheme);
+    final currentPageItems = _getCurrentPageItems();
+    final isTabletOrMobile = ResponsiveWrapper.of(context).isMobile || ResponsiveWrapper.of(context).isTablet;
 
     return Scaffold(
       appBar: AppBar(
+        flexibleSpace: Container(
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                const Color(0xFF1976D2),
+                const Color(0xFF64B5F6),
+              ],
+            ),
+          ),
+        ),
+        elevation: 8,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(bottom: Radius.circular(16)),
+        ),
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back),
+          icon: const Icon(Icons.arrow_back_ios_new, color: Colors.white),
           onPressed: () {
             Navigator.pop(context);
           },
         ),
-        title: Text(
-          'Venta de Productos',
-          style: textTheme.headlineMedium?.copyWith(
-            fontWeight: FontWeight.bold,
-            color: Colors.blue,
-          ),
+        title: Row(
+          children: [
+            const Icon(Icons.shopping_cart_checkout, color: Colors.white, size: 28),
+            const SizedBox(width: 12),
+            RichText(
+              text: TextSpan(
+                children: [
+                  TextSpan(
+                    text: 'Venta de ',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 20,
+                      fontWeight: FontWeight.w400,
+                      color: Colors.white,
+                    ),
+                  ),
+                  TextSpan(
+                    text: 'Productos',
+                    style: GoogleFonts.montserrat(
+                      fontSize: 22,
+                      fontWeight: FontWeight.bold,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
-        backgroundColor: const Color(0xFFBBDEFB), // Light blue color
+        actions: [
+          Container(
+            margin: const EdgeInsets.only(right: 16),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.inventory_2_outlined, color: Colors.white, size: 18),
+                const SizedBox(width: 4),
+                Text(
+                  '${_productosFiltrados.length} items',
+                  style: GoogleFonts.montserrat(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                    fontSize: 12,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
-
-
-
       backgroundColor: _colorScheme.surface,
       body: SafeArea(
         child: _isLoading
             ? const Center(child: CircularProgressIndicator())
             : Column(
           children: [
-            // Barra superior con búsqueda y filtro
+            // Search and filter bar
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
@@ -1339,64 +1502,58 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                   ),
                 ],
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+              child: Row(
                 children: [
-                  const SizedBox(height: 16),
-                  Row(
-                    children: [
-                      // Campo de búsqueda
-                      Expanded(
-                        child: TextField(
-                          controller: _searchController,
-                          decoration: InputDecoration(
-                            hintText: 'Buscar productos...',
-                            prefixIcon: Icon(Icons.search, color: _colorScheme.primary),
-                            filled: true,
-                            fillColor: _colorScheme.surfaceContainerHighest,
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(15),
-                              borderSide: BorderSide.none,
-                            ),
-                            contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      // Dropdown para filtrar por categoría
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                        decoration: BoxDecoration(
-                          color: _colorScheme.surfaceContainerHighest,
+                  // Search field
+                  Expanded(
+                    child: TextField(
+                      controller: _searchController,
+                      decoration: InputDecoration(
+                        hintText: 'Buscar productos...',
+                        prefixIcon: Icon(Icons.search, color: _colorScheme.primary),
+                        filled: true,
+                        fillColor: _colorScheme.surfaceContainerHighest,
+                        border: OutlineInputBorder(
                           borderRadius: BorderRadius.circular(15),
+                          borderSide: BorderSide.none,
                         ),
-                        child: DropdownButtonHideUnderline(
-                          child: DropdownButton<String>(
-                            value: _categoriaSeleccionada,
-                            icon: Icon(Icons.filter_list, color: _colorScheme.primary),
-                            style: textTheme.titleMedium,
-                            onChanged: (String? newValue) {
-                              setState(() {
-                                _categoriaSeleccionada = newValue!;
-                                _filtrarProductos();
-                              });
-                            },
-                            items: _categorias.map<DropdownMenuItem<String>>((String value) {
-                              return DropdownMenuItem<String>(
-                                value: value,
-                                child: Text(value),
-                              );
-                            }).toList(),
-                          ),
-                        ),
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
                       ),
-                    ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  // Category filter dropdown
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(15),
+                    ),
+                    child: DropdownButtonHideUnderline(
+                      child: DropdownButton<String>(
+                        value: _categoriaSeleccionada,
+                        icon: Icon(Icons.filter_list, color: _colorScheme.primary),
+                        style: textTheme.titleMedium,
+                        onChanged: (String? newValue) {
+                          setState(() {
+                            _categoriaSeleccionada = newValue!;
+                            _filtrarProductos();
+                          });
+                        },
+                        items: _categorias.map<DropdownMenuItem<String>>((String value) {
+                          return DropdownMenuItem<String>(
+                            value: value,
+                            child: Text(value),
+                          );
+                        }).toList(),
+                      ),
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // Lista de productos
+            // Product list with improved design
             Expanded(
               child: _productosFiltrados.isEmpty
                   ? Center(
@@ -1426,63 +1583,63 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                 ),
               )
                   : GridView.builder(
-                padding: const EdgeInsets.all(8),
+                padding: const EdgeInsets.all(12),
                 gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
                   crossAxisCount: ResponsiveWrapper.of(context).isMobile ? 1 :
-                  ResponsiveWrapper.of(context).isTablet ? 2 : 5, // 5 columns for desktop
-                  childAspectRatio: ResponsiveWrapper.of(context).isMobile ? 2.5 :
-                  ResponsiveWrapper.of(context).isTablet ? 0.8 : 1.0, // 1.0 ratio for desktop
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
+                  ResponsiveWrapper.of(context).isTablet ? 2 : 3,
+                  childAspectRatio: ResponsiveWrapper.of(context).isMobile ? 2.2 :
+                  ResponsiveWrapper.of(context).isTablet ? 1.5 : 1.3,
+                  crossAxisSpacing: 16,
+                  mainAxisSpacing: 16,
                 ),
-                itemCount: _productosFiltrados.length,
+                itemCount: currentPageItems.length,
                 itemBuilder: (context, index) {
-                  final producto = _productosFiltrados[index];
+                  final producto = currentPageItems[index];
                   final stockDisponible = producto['stock'];
                   final sinStock = stockDisponible == 0;
 
-
                   return Card(
-                    elevation: 0,
+                    elevation: 2,
+                    shadowColor: Colors.black.withOpacity(0.1),
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(15),
-                      side: BorderSide(
-                        color: Colors.grey.withOpacity(0.2),
-                        width: 1,
-                      ),
+                      borderRadius: BorderRadius.circular(18),
                     ),
                     child: InkWell(
                       onTap: sinStock ? null : () => _agregarAlCarrito(producto),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(18),
                       splashColor: _colorScheme.primaryContainer,
                       child: Padding(
-                        padding: const EdgeInsets.all(8.0),
+                        padding: const EdgeInsets.all(16.0),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            // Imagen más pequeña
+                            // Product icon/image
                             Expanded(
                               flex: 3,
                               child: Center(
                                 child: Container(
-                                  padding: const EdgeInsets.all(8),
+                                  padding: const EdgeInsets.all(10),
                                   decoration: BoxDecoration(
                                     color: producto['color'],
-                                    borderRadius: BorderRadius.circular(8),
+                                    borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Icon(
                                     producto['categoria'] == 'Tabletas'
                                         ? Icons.medication_outlined
-                                        : Icons.liquor_outlined,
+                                        : producto['categoria'] == 'Capsulas'
+                                        ? Icons.medication_liquid_outlined
+                                        : producto['categoria'] == 'Inyectables'
+                                        ? Icons.vaccines_outlined
+                                        : Icons.local_hospital_outlined,
                                     color: _colorScheme.primary,
-                                    size: 32,
+                                    size: 42,
                                   ),
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 8),
+                            const SizedBox(height: 12),
 
-                            // Información más compacta
+                            // Product information
                             Expanded(
                               flex: 7,
                               child: Column(
@@ -1490,55 +1647,66 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                                 children: [
                                   Text(
                                     producto['nombre'],
-                                    style: textTheme.titleSmall?.copyWith(
-                                      fontWeight: FontWeight.w600,
+                                    style: textTheme.titleMedium?.copyWith(
+                                      fontWeight: FontWeight.bold,
                                       color: sinStock ? Colors.grey : null,
+                                      fontSize: isTabletOrMobile ? 14 : 16,
                                     ),
                                     maxLines: 2,
                                     overflow: TextOverflow.ellipsis,
                                   ),
-                                  const SizedBox(height: 2),
+                                  const SizedBox(height: 4),
                                   Text(
                                     producto['nombreGenerico'],
-                                    style: textTheme.bodySmall?.copyWith(
+                                    style: textTheme.bodyMedium?.copyWith(
                                       color: sinStock ? Colors.grey : Colors.grey[600],
-                                      fontSize: 11,
+                                      fontSize: isTabletOrMobile ? 12 : 14,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   Text(
-                                    'Contenido: ${producto['contenido']}',
-                                    style: textTheme.bodySmall?.copyWith(
+                                    producto['contenido'].toString(),
+                                    style: textTheme.bodyMedium?.copyWith(
                                       color: sinStock ? Colors.grey : Colors.grey[600],
-                                      fontSize: 11,
+                                      fontSize: isTabletOrMobile ? 12 : 14,
                                     ),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const Spacer(),
+
+                                  // Precio y stock con tamaño prominente
                                   Row(
                                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                                     children: [
+                                      // Precio prominente
                                       Text(
                                         '\$${producto['precio'].toStringAsFixed(2)}',
-                                        style: textTheme.titleSmall?.copyWith(
+                                        style: textTheme.headlineSmall?.copyWith(
                                           fontWeight: FontWeight.bold,
                                           color: sinStock ? Colors.grey : _colorScheme.primary,
+                                          fontSize: isTabletOrMobile ? 20 : 24,
                                         ),
                                       ),
+
+                                      // Stock con fondo de color
                                       Container(
-                                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
                                         decoration: BoxDecoration(
                                           color: sinStock ? Colors.red[50] : _colorScheme.primaryContainer,
-                                          borderRadius: BorderRadius.circular(4),
+                                          borderRadius: BorderRadius.circular(8),
+                                          border: Border.all(
+                                            color: sinStock ? Colors.red.withOpacity(0.3) : _colorScheme.primary.withOpacity(0.3),
+                                            width: 1.5,
+                                          ),
                                         ),
                                         child: Text(
-                                          sinStock ? 'Agotado' : 'Stock: ${producto["stock"]}',
-                                          style: textTheme.bodySmall?.copyWith(
-                                            color: sinStock ? Colors.red[400] : _colorScheme.primary,
-                                            fontWeight: FontWeight.w500,
-                                            fontSize: 10,
+                                          sinStock ? 'Agotado' : '${producto["stock"]}',
+                                          style: textTheme.titleMedium?.copyWith(
+                                            color: sinStock ? Colors.red[700] : _colorScheme.primary,
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: isTabletOrMobile ? 16 : 18,
                                           ),
                                         ),
                                       ),
@@ -1555,6 +1723,10 @@ class _CobroPageState extends State<CobroPage> with SingleTickerProviderStateMix
                 },
               ),
             ),
+
+            // Add pagination controls
+            if (!_isLoading && _productosFiltrados.isNotEmpty)
+              _buildPagination(),
           ],
         ),
       ),

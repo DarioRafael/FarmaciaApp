@@ -124,11 +124,11 @@ class _ReportesPageState extends State<ReportesPage> {
 
           return {
             'id': producto['ID'].toString(),
-            'nombre': producto['NombreMedico'] ?? 'Sin nombre',
+            'nombreMedico': producto['NombreMedico'] ?? 'Sin nombre',
             'nombreGenerico': producto['NombreGenerico'] ?? '',
             'categoria': categoria,
             'precio': double.parse((producto['Precio'] ?? 0.0).toString()),
-            'stock': int.parse((producto['UnidadesPorCaja'] ?? 0).toString()),
+            'stock': int.parse((producto['Stock'] ?? 0).toString()),
             'fabricante': producto['Fabricante'] ?? '',
             'contenido': producto['Contenido'] ?? '',
             'fechaCaducidad': producto['FechaCaducidad'] ?? '',
@@ -144,7 +144,7 @@ class _ReportesPageState extends State<ReportesPage> {
 
           return <String, dynamic>{
             'id': categoryId++,
-            'nombre': nombreCategoria,
+            'nombreGenerico': nombreCategoria,
             'productos': categoriaMedicamentos,
           };
         }).toList();
@@ -179,13 +179,17 @@ class _ReportesPageState extends State<ReportesPage> {
       });
     }
   }
-
-  // Helper method to determine category based on product form
+// Helper method to determine category based on product form
   String _determinarCategoria(String formaFarmaceutica) {
     final formaLower = formaFarmaceutica.toLowerCase();
-    if (formaLower.contains('pastilla') || formaLower.contains('tableta') || formaLower.contains('cápsula')) {
+    if (formaLower.contains('pastilla') || formaLower.contains('tableta')) {
       return 'Tabletas';
-    } else if (formaLower.contains('bebibles') || formaLower.contains('suspensión') || formaLower.contains('líquido')) {
+    } else if (formaLower.contains('cápsula') || formaLower.contains('capsula')) {
+      return 'Capsulas';
+    } else if (formaLower.contains('inyectable') || formaLower.contains('inyeccion')) {
+      return 'Inyectables';
+    } else if (formaLower.contains('bebibles') || formaLower.contains('suspensión') ||
+        formaLower.contains('líquido')) {
       return 'Bebibles';
     } else {
       return 'Otros';
@@ -224,11 +228,11 @@ class _ReportesPageState extends State<ReportesPage> {
         for (final productId in selectedProductIds) {
           final producto = productos.firstWhere(
                 (p) => p['id'].toString() == productId,
-            orElse: () => {'nombre': ''},
+            orElse: () => {'nombreGenerico': ''},
           );
 
-          if (producto['nombre'] != '' &&
-              descripcion.contains(producto['nombre'].toString().toLowerCase())) {
+          if (producto['nombreGenerico'] != '' &&
+              descripcion.contains(producto['nombreMedico'].toString().toLowerCase())) {
             return true;
           }
         }
@@ -250,7 +254,7 @@ class _ReportesPageState extends State<ReportesPage> {
           final productosCategoria = categoria['productos'] as List?;
           if (productosCategoria != null) {
             for (final producto in productosCategoria) {
-              if (descripcion.contains(producto['nombre'].toString().toLowerCase())) {
+              if (descripcion.contains(producto['nombreGenerico'].toString().toLowerCase())) {
                 return true;
               }
             }
@@ -271,7 +275,7 @@ class _ReportesPageState extends State<ReportesPage> {
     } else if (selectedCategoryIds.isNotEmpty) {
       return productos.where((producto) {
         final categoria = categorias.firstWhere(
-              (cat) => cat['nombre'] == producto['categoria'],
+              (cat) => cat['nombreMedico'] == producto['categoria'],
           orElse: () => {'id': -1},
         );
         return selectedCategoryIds.contains(categoria['id']);
@@ -539,7 +543,7 @@ class _ReportesPageState extends State<ReportesPage> {
     // Use API-loaded categories instead of dummy data
     List<Map<String, dynamic>> filteredCategories = categorias
         .where((category) =>
-        category['nombre'].toString().toLowerCase()
+        category['nombreGenerico'].toString().toLowerCase()
             .contains(categorySearchController.text.toLowerCase()))
         .toList();
 
@@ -617,7 +621,7 @@ class _ReportesPageState extends State<ReportesPage> {
             runSpacing: 8,
             children: filteredCategories.map((category) {
               return FilterChip(
-                label: Text(category['nombre']),
+                label: Text(category['nombreGenerico']),
                 selected: selectedCategoryIds.contains(category['id'].toString()),
                 onSelected: (bool selected) {
                   setState(() {
@@ -644,7 +648,7 @@ class _ReportesPageState extends State<ReportesPage> {
       filteredProducts = productos.where((producto) {
         // Find the category object for this product
         final categoria = categorias.firstWhere(
-              (cat) => cat['nombre'] == producto['categoria'],
+              (cat) => cat['nombreGenerico'] == producto['categoria'],
           orElse: () => {'id': -1},
         );
         // Check if the product's category is in selectedCategoryIds
@@ -656,7 +660,7 @@ class _ReportesPageState extends State<ReportesPage> {
     if (searchController.text.isNotEmpty) {
       final searchTerm = searchController.text.toLowerCase();
       filteredProducts = filteredProducts.where((producto) =>
-      producto['nombre'].toString().toLowerCase().contains(searchTerm) ||
+      producto['nombreMedico'].toString().toLowerCase().contains(searchTerm) ||
           producto['nombreGenerico'].toString().toLowerCase().contains(searchTerm)
       ).toList();
     }
@@ -747,7 +751,8 @@ class _ReportesPageState extends State<ReportesPage> {
             children: filteredProducts.map((producto) {
               return FilterChip(
                 label: Text(
-                  producto['nombre'],
+                  //NOMBRE
+                  producto['nombreGenerico'],
                   overflow: TextOverflow.ellipsis,
                 ),
                 selected: selectedProductIds.contains(producto['id'].toString()),
@@ -1071,7 +1076,7 @@ class _ReportesPageState extends State<ReportesPage> {
             (sum, item) => sum + (item['monto'] as double)
     );
 
-    // Return the table with adjusted column widths
+    // Return the table with adjusted column widths and right-aligned amount column
     return pw.Column(
       crossAxisAlignment: pw.CrossAxisAlignment.start,
       children: [
@@ -1101,6 +1106,9 @@ class _ReportesPageState extends State<ReportesPage> {
             2: const pw.FlexColumnWidth(3), // Monto - wider to avoid wrapping
           },
           headerAlignment: pw.Alignment.center,
+          cellAlignments: {
+            2: pw.Alignment.centerRight, // Align the amount column (index 2) to the right
+          },
         ),
         pw.SizedBox(height: 10),
         pw.Container(
@@ -1121,7 +1129,7 @@ class _ReportesPageState extends State<ReportesPage> {
     // Create the data for the table with explicit String casting
     List<List<String>> data = products.map<List<String>>((product) {
       return [
-        product['nombre'].toString(),
+        product['nombreGenerico'].toString(),
         product['categoria'].toString(),
         product['stock'].toString(),
         '\$${product['precio'].toStringAsFixed(2)}',
@@ -1148,6 +1156,10 @@ class _ReportesPageState extends State<ReportesPage> {
       ),
       headers: ['Producto', 'Categoría', 'Stock', 'Precio'],
       data: data,
+      cellAlignments: {
+        3: pw.Alignment.centerRight, // Align the price column (index 3) to the right
+      },
+      cellStyle: pw.TextStyle(fontWeight: pw.FontWeight.bold), // Apply to all cells
     );
   }
 

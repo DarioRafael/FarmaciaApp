@@ -18,6 +18,7 @@ class _InventarioPageState extends State<InventarioPage> {
   List<Map<String, dynamic>> _productos = [];
   List<String> _filterOptions = ['Todos'];
   final List<bool> _selectedInventories = List.generate(11, (_) => true);
+  bool _isLoading = false;
 
 
   List<Map<String, dynamic>> _filteredProducts = [];
@@ -63,7 +64,9 @@ class _InventarioPageState extends State<InventarioPage> {
 
 
   Future<void> _loadProductsFromApi() async {
-    setState(() {});
+    setState(() {
+      _isLoading = true;
+    });
 
     try {
       final response = await http.get(Uri.parse(apiUrl));
@@ -94,7 +97,7 @@ class _InventarioPageState extends State<InventarioPage> {
               'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
               'unidadesPorCaja': item['UnidadesPorCaja'],
               'precio': item['Precio'].toDouble(),
-              'stock': item['UnidadesPorCaja'],
+              'stock': item['Stock'],
               'color': itemColor,
             };
           }).toList();
@@ -103,6 +106,9 @@ class _InventarioPageState extends State<InventarioPage> {
           _filterProducts();
           _initializeAllInventories();
           _generateAlmacenProductos();
+
+          _isLoading = false;
+
         });
       } else {
         throw Exception('Failed to load products');
@@ -160,7 +166,7 @@ class _InventarioPageState extends State<InventarioPage> {
         return {
           ...producto,
           'precio': double.parse(newPrice.toStringAsFixed(2)),
-          'unidadesPorCaja': newStock,
+          'stock': newStock,
         };
       }).toList();
     });
@@ -1007,13 +1013,10 @@ class _InventarioPageState extends State<InventarioPage> {
           throw Exception('Error al reabastecer el producto ${producto['nombre']}');
         }
 
-        // Update local inventory - ADD to stock instead of subtracting
+// Update local inventory - ADD to stock (only once)
         final int index = _productos.indexWhere((p) => p['id'] == producto['id']);
         if (index != -1) {
           _productos[index]['stock'] = (_productos[index]['stock'] as int) +
-              (producto['cantidadAReabastecer'] as int);
-
-          _productos[index]['unidadesPorCaja'] = (_productos[index]['unidadesPorCaja'] as int) +
               (producto['cantidadAReabastecer'] as int);
         }
 
@@ -1025,6 +1028,7 @@ class _InventarioPageState extends State<InventarioPage> {
                   (producto['cantidadAReabastecer'] as int);
         }
       }
+
 
       // Register the expense transaction for the restock
       final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
@@ -1484,8 +1488,8 @@ class _InventarioPageState extends State<InventarioPage> {
     // Adjust column widths for small screens
     if (isSmallScreen) {
       idWidth = 40.0;
-      nombreGenericoWidth = 120.0;
-      nombreMedicoWidth = 120.0;
+      nombreGenericoWidth = 80.0;
+      nombreMedicoWidth = 80.0;
       fabricanteWidth = 100.0;
       contenidoWidth = 80.0;
       formaWidth = 80.0;
@@ -1581,14 +1585,35 @@ class _InventarioPageState extends State<InventarioPage> {
                       ),
                 ),
           ),
-          IconButton(
+
+
+          _isLoading
+              ? Container(
+            width: 48,
+            height: 48,
+            padding: const EdgeInsets.all(12),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(white),
+              strokeWidth: 2,
+            ),
+          )
+              : IconButton(
             icon: Icon(Icons.refresh, color: white),
             onPressed: () {
               _loadProductsFromApi();
+              // Show a feedback message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Actualizando inventario...'),
+                  duration: Duration(seconds: 1),
+                ),
+              );
             },
           ),
         ],
       ),
+
+
       body: Container(
         color: lightBlue,
         child: Padding(
@@ -1813,6 +1838,16 @@ class _InventarioPageState extends State<InventarioPage> {
       ),
       DataColumn(
         label: SizedBox(
+          width: stockWidth,
+          child: const Text('Stock',
+            style: TextStyle(fontWeight: FontWeight.bold),
+            textAlign: TextAlign.right,
+          ),
+        ),
+        numeric: true,
+      ),
+      DataColumn(
+        label: SizedBox(
           width: precioWidth,
           child: const Text('Precio',
             style: TextStyle(fontWeight: FontWeight.bold),
@@ -1878,6 +1913,7 @@ class _InventarioPageState extends State<InventarioPage> {
         DataCell(SizedBox(width: presentacionWidth, child: Text(producto['presentacion']?.toString() ?? '', style: baseStyle, overflow: TextOverflow.ellipsis))),
         DataCell(SizedBox(width: fechaCadWidth, child: Text(_formatDate(fechaCaducidad), style: caducidadStyle))),
         DataCell(SizedBox(width: unidadesWidth, child: Text(producto['unidadesPorCaja']?.toString() ?? '0', style: baseStyle, textAlign: TextAlign.right))),
+        DataCell(SizedBox(width: stockWidth, child: Text(producto['stock']?.toString() ?? '0', style: baseStyle, textAlign: TextAlign.right))),
         DataCell(SizedBox(width: precioWidth, child: Text('\$${(producto['precio'] ?? 0).toStringAsFixed(2)}', style: baseStyle, textAlign: TextAlign.right))),
       ];
 
