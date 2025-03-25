@@ -461,7 +461,7 @@ class _InventarioPageState extends State<InventarioPage> {
                       producto['id'].toString().toLowerCase().contains(query.toLowerCase()))
                       .toList();
                 }
-
+//
                 // Ordenar los productos filtrados por nombre alfabéticamente
                 filteredAlmacenProductos.sort((a, b) =>
                     a['nombre'].toString().toLowerCase().compareTo(b['nombre'].toString().toLowerCase())
