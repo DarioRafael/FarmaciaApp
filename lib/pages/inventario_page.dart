@@ -17,7 +17,7 @@ class _InventarioPageState extends State<InventarioPage> {
   String _selectedFilter = 'Todos';
   List<Map<String, dynamic>> _productos = [];
   List<String> _filterOptions = ['Todos'];
-  final List<bool> _selectedInventories = List.generate(11, (_) => true);
+  List<bool> _selectedInventories = List.generate(3, (_) => true); // Updated to 3 for local and 2 branches
   bool _isLoading = false;
 
 
@@ -52,16 +52,29 @@ class _InventarioPageState extends State<InventarioPage> {
   static const Color tableHeaderColor = Color(0xFFE3F2FD); // Very light blue
 
   final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
+  final String apiUrlBranch2 = 'https://farmacia-api.loca.lt/api/medicamentos'; // New API URL
+
+  // @override
+  // void initState() {
+  //   super.initState();
+  //   _searchController.addListener(_filterProducts);
+  //   _loadProductsFromApi();
+  //   _generateAlmacenProductos();
+  // }//Probar de nuevo
 
   @override
   void initState() {
     super.initState();
     _searchController.addListener(_filterProducts);
-    _loadProductsFromApi();
+
+    // Primero cargamos la sucursal local
+    _loadLocalInventory().then((_) {
+      // Luego intentamos cargar las sucursales adicionales
+      _loadBranchInventories();
+    });
+
     _generateAlmacenProductos();
-  }//Probar de nuevo
-
-
+  }
 
   Future<void> _loadProductsFromApi() async {
     setState(() {
@@ -151,26 +164,142 @@ class _InventarioPageState extends State<InventarioPage> {
     print("Almacén generado con ${_almacenProductos.length} productos");
   }
 
-  void _initializeAllInventories() {
-    final random = Random();
-    _allInventories = List.generate(10, (_) {
-      return _productos.map((producto) {
-        // Random price variation between -20% and +20% of original price
-        final originalPrice = producto['precio'] as double;
-        final priceVariation = (random.nextDouble() * 0.4) - 0.2; // -0.2 to 0.2
-        final newPrice = originalPrice * (1 + priceVariation);
 
-        // Random stock between 0 and 100
-        final newStock = random.nextInt(101); // 0 to 100
 
-        return {
-          ...producto,
-          'precio': double.parse(newPrice.toStringAsFixed(2)),
-          'stock': newStock,
-        };
-      }).toList();
+
+  Future<void> _loadLocalInventory() async {
+    setState(() {
+      _isLoading = true;
     });
-    _filteredInventories = List.from(_allInventories);
+
+    try {
+      final response = await http.get(Uri.parse(apiUrl));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        setState(() {
+          _productos = data.map((item) {
+            // Assign a color based on forma farmaceutica
+            Color itemColor = const Color(0xFFE3F2FD); // Default light blue
+            if (item['FormaFarmaceutica'] == 'Tabletas') {
+              itemColor = const Color(0xFFE3F2FD);
+            } else if (item['FormaFarmaceutica'] == 'Bebibles' ||
+                item['FormaFarmaceutica'] == 'Jarabe' ||
+                item['FormaFarmaceutica'] == 'Suspensión') {
+              itemColor = const Color(0xFFF3E5F5);
+            }
+
+            return {
+              'id': item['ID'],
+              'nombre': item['NombreGenerico'],
+              'nombreMedico': item['NombreMedico'],
+              'fabricante': item['Fabricante'],
+              'contenido': item['Contenido'],
+              'categoria': item['FormaFarmaceutica'],
+              'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
+              'presentacion': item['Presentacion'],
+              'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
+              'unidadesPorCaja': item['UnidadesPorCaja'],
+              'precio': item['Precio'].toDouble(),
+              'stock': item['Stock'],
+              'color': itemColor,
+            };
+          }).toList();
+
+          _loadCategorias();
+          _filterProducts();
+          _generateAlmacenProductos();
+        });
+      } else {
+        throw Exception('Failed to load local inventory');
+      }
+    } catch (e) {
+      _showErrorDialog('Error al cargar inventario local: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+  Future<void> _loadBranchInventories() async {
+    // Primero asegurarnos que la sucursal local está cargada
+    if (_productos.isEmpty) {
+      await _loadLocalInventory();
+    }
+
+    // Cargar sucursal 2
+    try {
+      final response = await http.get(Uri.parse(apiUrlBranch2));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        // Procesar datos de la sucursal 2
+        final branchProducts = data.map((item) {
+          return {
+            'id': item['ID'],
+            'nombre': item['NombreGenerico'],
+            'nombreMedico': item['NombreMedico'],
+            'fabricante': item['Fabricante'],
+            'contenido': item['Contenido'],
+            'categoria': item['FormaFarmaceutica'],
+            'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
+            'presentacion': item['Presentacion'],
+            'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
+            'unidadesPorCaja': item['UnidadesPorCaja'],
+            'precio': item['Precio'].toDouble(),
+            'stock': item['Stock'],
+            'color': const Color(0xFFE3F2FD), // Color diferente para distinguir sucursales
+          };
+        }).toList();
+
+        setState(() {
+          // Agregar esta sucursal a los inventarios
+          if (_allInventories.isEmpty) {
+            _allInventories = [_productos, branchProducts];
+          } else if (_allInventories.length == 1) {
+            _allInventories.add(branchProducts);
+          } else {
+            _allInventories[1] = branchProducts;
+          }
+
+          _filteredInventories = List.from(_allInventories);
+          _selectedInventories = List.generate(_allInventories.length + 1, (_) => true);
+        });
+      }
+    } catch (e) {
+      print('Error al cargar sucursal 2: $e');
+      // No mostramos error al usuario para no interrumpir la experiencia
+    }
+
+    // Aquí podrías agregar más llamadas para otras sucursales
+  }
+
+
+
+
+  void _initializeAllInventories() {
+    // Solo generar inventarios ficticios si no hay datos reales
+    if (_allInventories.isEmpty) {
+      final random = Random();
+      _allInventories = List.generate(2, (_) {
+        return _productos.map((producto) {
+          // Random price variation between -20% and +20% of original price
+          final originalPrice = producto['precio'] as double;
+          final priceVariation = (random.nextDouble() * 0.4) - 0.2; // -0.2 to 0.2
+          final newPrice = originalPrice * (1 + priceVariation);
+
+          // Random stock between 0 and 100
+          final newStock = random.nextInt(101); // 0 to 100
+
+          return {
+            ...producto,
+            'precio': double.parse(newPrice.toStringAsFixed(2)),
+            'stock': newStock,
+          };
+        }).toList();
+      });
+      _filteredInventories = List.from(_allInventories);
+    }
   }
 
 //ss
