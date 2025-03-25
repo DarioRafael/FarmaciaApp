@@ -233,22 +233,31 @@ class _InventarioPageState extends State<InventarioPage> {
 
       if (response.statusCode == 200) {
         final List<dynamic> data = json.decode(response.body);
-        // Procesar datos de la sucursal 2
+        // Procesar datos de la sucursal 2 con el nuevo formato
         final branchProducts = data.map((item) {
+          // Asignar color basado en la forma farmacéutica
+          Color itemColor = const Color(0xFFE3F2FD); // Default light blue
+          if (item['forma_farmacologica'] == 'Tableta') {
+            itemColor = const Color(0xFFE3F2FD);
+          } else if (item['forma_farmacologica'] == 'Jarabe' ||
+              item['forma_farmacologica'] == 'Suspensión') {
+            itemColor = const Color(0xFFF3E5F5);
+          }
+
           return {
-            'id': item['ID'],
-            'nombre': item['NombreGenerico'],
-            'nombreMedico': item['NombreMedico'],
-            'fabricante': item['Fabricante'],
-            'contenido': item['Contenido'],
-            'categoria': item['FormaFarmaceutica'],
-            'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
-            'presentacion': item['Presentacion'],
-            'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
-            'unidadesPorCaja': item['UnidadesPorCaja'],
-            'precio': item['Precio'].toDouble(),
-            'stock': item['Stock'],
-            'color': const Color(0xFFE3F2FD), // Color diferente para distinguir sucursales
+            'id': item['id'],
+            'nombre': item['nombre_generico'],
+            'nombreMedico': item['nombre_medico'],
+            'fabricante': item['fabricante'],
+            'contenido': item['contenido'],
+            'categoria': item['forma_farmacologica'],
+            'fechaFabricacion': DateTime.parse(item['fecha_fabricacion']),
+            'presentacion': item['presentacion'],
+            'fechaCaducidad': DateTime.parse(item['fecha_caducidad']),
+            'unidadesPorCaja': item['unidades_por_caja'],
+            'precio': double.parse(item['precio'].toString()),
+            'stock': item['stock'],
+            'color': itemColor,
           };
         }).toList();
 
@@ -265,13 +274,20 @@ class _InventarioPageState extends State<InventarioPage> {
           _filteredInventories = List.from(_allInventories);
           _selectedInventories = List.generate(_allInventories.length + 1, (_) => true);
         });
+      } else {
+        print('Error al cargar sucursal 2: ${response.statusCode}');
       }
     } catch (e) {
       print('Error al cargar sucursal 2: $e');
-      // No mostramos error al usuario para no interrumpir la experiencia
+      // Puedes mostrar un snackbar menos intrusivo
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo cargar la sucursal 2'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.orange,
+        ),
+      );
     }
-
-    // Aquí podrías agregar más llamadas para otras sucursales
   }
 
 
