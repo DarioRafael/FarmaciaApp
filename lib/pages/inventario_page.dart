@@ -52,9 +52,10 @@ class _InventarioPageState extends State<InventarioPage> {
   static const Color tableHeaderColor = Color(0xFFE3F2FD); // Very light blue
 
   final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
-  final String apiUrlBranch2 = 'https://farmacia-api.loca.lt/api/medicamentos'; // Api Gael
-  final String apiUrlBranch3 = 'https://farmacia-dele.loca.lt/api/medicamentos'; //Api Dele
-  final String apiUrlBranch4 = 'https://ladybird-regular-blatantly.ngrok-free.app/api/producto/inventario'; //Api Manuelito (NO JALO :'v)
+  final String apiUrlBranch2 = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos-farmacia-gaelle'; // Api Gael
+  final String apiUrlBranch3 = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos-farmacia-dele'; // Api Dele
+  final String apiUrlBranch4 = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos-farmacia-manuelito'; // MANUELITO
+
   // @override
   // void initState() {
   //   super.initState();
@@ -222,136 +223,75 @@ class _InventarioPageState extends State<InventarioPage> {
       });
     }
   }
+
+
   Future<void> _loadBranchInventories() async {
-    // Primero asegurarnos que la sucursal local está cargada
+    // Ensure the local inventory is loaded first
     if (_productos.isEmpty) {
       await _loadLocalInventory();
     }
 
-    // Cargar sucursal 2
-    try {
-      final response = await http.get(Uri.parse(apiUrlBranch2));
+    // List of branch URLs
+    final branchUrls = [apiUrlBranch2, apiUrlBranch3, apiUrlBranch4];
 
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        // Procesar datos de la sucursal 2 con el nuevo formato
-        final branchProducts = data.map((item) {
-          // Asignar color basado en la forma farmacéutica
-          Color itemColor = const Color(0xFFE3F2FD); // Default light blue
-          if (item['forma_farmacologica'] == 'Tableta') {
-            itemColor = const Color(0xFFE3F2FD);
-          } else if (item['forma_farmacologica'] == 'Jarabe' ||
-              item['forma_farmacologica'] == 'Suspensión') {
-            itemColor = const Color(0xFFF3E5F5);
-          }
+    for (int i = 0; i < branchUrls.length; i++) {
+      try {
+        final response = await http.get(Uri.parse(branchUrls[i]));
 
-          return {
-            'id': item['ID'],
-            'nombre': item['NombreGenerico'],
-            'nombreMedico': item['NombreMedico'],
-            'fabricante': item['Fabricante'],
-            'contenido': item['Contenido'],
-            'categoria': item['FormaFarmaceutica'],
-            'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
-            'presentacion': item['Presentacion'],
-            'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
-            'unidadesPorCaja': item['UnidadesPorCaja'],
-            'precio': double.parse(item['Precio'].toString()),
-            'stock': item['Stock'],
-            'color': itemColor,
-          };
-        }).toList();
+        if (response.statusCode == 200) {
+          final List<dynamic> data = json.decode(response.body);
+          final branchProducts = data.map((item) {
+            // Assign color based on forma farmaceutica
+            Color itemColor = const Color(0xFFE3F2FD); // Default light blue
+            if (item['forma_farmacologica'] == 'Tableta') {
+              itemColor = const Color(0xFFE3F2FD);
+            } else if (item['forma_farmacologica'] == 'Jarabe' ||
+                item['forma_farmacologica'] == 'Suspensión') {
+              itemColor = const Color(0xFFF3E5F5);
+            }
 
-        setState(() {
-          // Agregar esta sucursal a los inventarios
-          if (_allInventories.isEmpty) {
-            _allInventories = [_productos, branchProducts];
-          } else if (_allInventories.length == 1) {
-            _allInventories.add(branchProducts);
-          } else {
-            _allInventories[1] = branchProducts;
-          }
+            return {
+              'id': item['ID'],
+              'nombre': item['NombreGenerico'],
+              'nombreMedico': item['NombreMedico'],
+              'fabricante': item['Fabricante'],
+              'contenido': item['Contenido'],
+              'categoria': item['FormaFarmaceutica'],
+              'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
+              'presentacion': item['Presentacion'],
+              'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
+              'unidadesPorCaja': item['UnidadesPorCaja'],
+              'precio': double.parse(item['Precio'].toString()),
+              'stock': item['Stock'],
+              'color': itemColor,
+            };
+          }).toList();
 
-          _filteredInventories = List.from(_allInventories);
-          _selectedInventories = List.generate(_allInventories.length + 1, (_) => true);
-        });
-      } else {
-        print('Error al cargar sucursal 2: ${response.statusCode}');
+          setState(() {
+            // Add this branch to the inventories
+            if (_allInventories.length <= i + 1) {
+              _allInventories.add(branchProducts);
+            } else {
+              _allInventories[i + 1] = branchProducts;
+            }
+
+            _filteredInventories = List.from(_allInventories);
+            _selectedInventories = List.generate(_allInventories.length + 1, (_) => true);
+          });
+        } else {
+          print('Error loading branch ${i + 2}: ${response.statusCode}');
+        }
+      } catch (e) {
+        print('Error loading branch ${i + 2}: $e');
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to load branch ${i + 2}'),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
-    } catch (e) {
-      print('Error al cargar sucursal 2: $e');
-      // Puedes mostrar un snackbar menos intrusivo
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo cargar la sucursal 2'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.orange,
-        ),
-      );
     }
-
-    // Cargar sucursal 3
-    try {
-      final response = await http.get(Uri.parse(apiUrlBranch3));
-
-      if (response.statusCode == 200) {
-        final List<dynamic> data = json.decode(response.body);
-        // Procesar datos de la sucursal 3 con el nuevo formato
-        final branchProducts = data.map((item) {
-          // Asignar color basado en la forma farmacéutica
-          Color itemColor = const Color(0xFFE3F2FD); // Default light blue
-          if (item['forma_farmacologica'] == 'Tableta') {
-            itemColor = const Color(0xFFE3F2FD);
-          } else if (item['forma_farmacologica'] == 'Jarabe' ||
-              item['forma_farmacologica'] == 'Suspensión') {
-            itemColor = const Color(0xFFF3E5F5);
-          }
-
-          return {
-            'id': item['ID'],
-            'nombre': item['NombreGenerico'],
-            'nombreMedico': item['NombreMedico'],
-            'fabricante': item['Fabricante'],
-            'contenido': item['Contenido'],
-            'categoria': item['FormaFarmaceutica'],
-            'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
-            'presentacion': item['Presentacion'],
-            'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
-            'unidadesPorCaja': item['UnidadesPorCaja'],
-            'precio': double.parse(item['Precio'].toString()),
-            'stock': item['Stock'],
-            'color': itemColor,
-          };
-        }).toList();
-
-        setState(() {
-          // Agregar esta sucursal a los inventarios
-          if (_allInventories.isEmpty) {
-            _allInventories = [_productos, branchProducts];
-          } else if (_allInventories.length == 2) {
-            _allInventories.add(branchProducts);
-          } else {
-            _allInventories[2] = branchProducts;
-          }
-
-          _filteredInventories = List.from(_allInventories);
-          _selectedInventories = List.generate(_allInventories.length + 1, (_) => true);
-        });
-      } else {
-        print('Error al cargar sucursal 3: ${response.statusCode}');
-      }
-    } catch (e) {
-      print('Error al cargar sucursal 3: $e');
-      // Puedes mostrar un snackbar menos intrusivo
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('No se pudo cargar la sucursal 3'),
-          duration: Duration(seconds: 2),
-          backgroundColor: Colors.orange,
-        ),
-      );
-    }
-
   }
 
 
