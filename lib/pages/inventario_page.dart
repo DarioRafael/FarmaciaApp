@@ -17,7 +17,7 @@ class _InventarioPageState extends State<InventarioPage> {
   String _selectedFilter = 'Todos';
   List<Map<String, dynamic>> _productos = [];
   List<String> _filterOptions = ['Todos'];
-  List<bool> _selectedInventories = List.generate(3, (_) => true); // Updated to 3 for local and 2 branches
+  List<bool> _selectedInventories = List.generate(4, (_) => true); // Updated to 3 for local and 2 branches
   bool _isLoading = false;
 
 
@@ -52,8 +52,9 @@ class _InventarioPageState extends State<InventarioPage> {
   static const Color tableHeaderColor = Color(0xFFE3F2FD); // Very light blue
 
   final String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos';
-  final String apiUrlBranch2 = 'https://farmacia-api.loca.lt/api/medicamentos'; // New API URL
-
+  final String apiUrlBranch2 = 'https://farmacia-api.loca.lt/api/medicamentos'; // Api Gael
+  final String apiUrlBranch3 = 'https://farmacia-dele.loca.lt/api/medicamentos'; //Api Dele
+  final String apiUrlBranch4 = 'https://ladybird-regular-blatantly.ngrok-free.app/api/producto/inventario'; //Api Manuelito (NO JALO :'v)
   // @override
   // void initState() {
   //   super.initState();
@@ -245,18 +246,18 @@ class _InventarioPageState extends State<InventarioPage> {
           }
 
           return {
-            'id': item['id'],
-            'nombre': item['nombre_generico'],
-            'nombreMedico': item['nombre_medico'],
-            'fabricante': item['fabricante'],
-            'contenido': item['contenido'],
-            'categoria': item['forma_farmacologica'],
-            'fechaFabricacion': DateTime.parse(item['fecha_fabricacion']),
-            'presentacion': item['presentacion'],
-            'fechaCaducidad': DateTime.parse(item['fecha_caducidad']),
-            'unidadesPorCaja': item['unidades_por_caja'],
-            'precio': double.parse(item['precio'].toString()),
-            'stock': item['stock'],
+            'id': item['ID'],
+            'nombre': item['NombreGenerico'],
+            'nombreMedico': item['NombreMedico'],
+            'fabricante': item['Fabricante'],
+            'contenido': item['Contenido'],
+            'categoria': item['FormaFarmaceutica'],
+            'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
+            'presentacion': item['Presentacion'],
+            'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
+            'unidadesPorCaja': item['UnidadesPorCaja'],
+            'precio': double.parse(item['Precio'].toString()),
+            'stock': item['Stock'],
             'color': itemColor,
           };
         }).toList();
@@ -288,6 +289,69 @@ class _InventarioPageState extends State<InventarioPage> {
         ),
       );
     }
+
+    // Cargar sucursal 3
+    try {
+      final response = await http.get(Uri.parse(apiUrlBranch3));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+        // Procesar datos de la sucursal 3 con el nuevo formato
+        final branchProducts = data.map((item) {
+          // Asignar color basado en la forma farmacéutica
+          Color itemColor = const Color(0xFFE3F2FD); // Default light blue
+          if (item['forma_farmacologica'] == 'Tableta') {
+            itemColor = const Color(0xFFE3F2FD);
+          } else if (item['forma_farmacologica'] == 'Jarabe' ||
+              item['forma_farmacologica'] == 'Suspensión') {
+            itemColor = const Color(0xFFF3E5F5);
+          }
+
+          return {
+            'id': item['ID'],
+            'nombre': item['NombreGenerico'],
+            'nombreMedico': item['NombreMedico'],
+            'fabricante': item['Fabricante'],
+            'contenido': item['Contenido'],
+            'categoria': item['FormaFarmaceutica'],
+            'fechaFabricacion': DateTime.parse(item['FechaFabricacion']),
+            'presentacion': item['Presentacion'],
+            'fechaCaducidad': DateTime.parse(item['FechaCaducidad']),
+            'unidadesPorCaja': item['UnidadesPorCaja'],
+            'precio': double.parse(item['Precio'].toString()),
+            'stock': item['Stock'],
+            'color': itemColor,
+          };
+        }).toList();
+
+        setState(() {
+          // Agregar esta sucursal a los inventarios
+          if (_allInventories.isEmpty) {
+            _allInventories = [_productos, branchProducts];
+          } else if (_allInventories.length == 2) {
+            _allInventories.add(branchProducts);
+          } else {
+            _allInventories[2] = branchProducts;
+          }
+
+          _filteredInventories = List.from(_allInventories);
+          _selectedInventories = List.generate(_allInventories.length + 1, (_) => true);
+        });
+      } else {
+        print('Error al cargar sucursal 3: ${response.statusCode}');
+      }
+    } catch (e) {
+      print('Error al cargar sucursal 3: $e');
+      // Puedes mostrar un snackbar menos intrusivo
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('No se pudo cargar la sucursal 3'),
+          duration: Duration(seconds: 2),
+          backgroundColor: Colors.orange,
+        ),
+      );
+    }
+
   }
 
 
@@ -297,7 +361,7 @@ class _InventarioPageState extends State<InventarioPage> {
     // Solo generar inventarios ficticios si no hay datos reales
     if (_allInventories.isEmpty) {
       final random = Random();
-      _allInventories = List.generate(2, (_) {
+      _allInventories = List.generate(3, (_) {
         return _productos.map((producto) {
           // Random price variation between -20% and +20% of original price
           final originalPrice = producto['precio'] as double;
@@ -1897,13 +1961,15 @@ class _InventarioPageState extends State<InventarioPage> {
   }
 
   String _formatDate(dynamic date) {
-    if (date == null) return '';
+    if (date == null || date == "No especificado") return ''; // Manejo de valores nulos o inválidos
 
     if (date is String) {
       try {
-        return DateFormat('dd/MM/yyyy').format(DateTime.parse(date));
+        DateTime parsedDate = DateTime.parse(date);
+        return DateFormat('dd/MM/yyyy').format(parsedDate);
       } catch (e) {
-        return date;
+        print("Error al convertir la fecha: $date");
+        return ''; // Retorna vacío en lugar de devolver la fecha inválida
       }
     }
 
@@ -1913,6 +1979,7 @@ class _InventarioPageState extends State<InventarioPage> {
 
     return '';
   }
+
 
   DataTable _buildProductTable(List<Map<String, dynamic>> products, bool isSmallScreen, int currentTab) {
     // Create columns list
