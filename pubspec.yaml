@@ -33,6 +33,10 @@ dependencies:
   flutter_pdfview: ^1.2.7
   flutter_svg: ^2.0.9
   shimmer: ^3.0.0
+  cached_network_image: ^3.2.3
+  flutter_slidable: ^4.0.0
+  timeline_tile: ^2.0.0
+  lottie: ^2.3.2
 
 dev_dependencies:
   flutter_test:

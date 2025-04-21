@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:shop_app/pages/usuarios_page.dart';
+import 'pedidos_page.dart';
 import 'cobro_page.dart';
 import 'inventario_page.dart';
 import 'reportes_page.dart';
@@ -84,6 +85,14 @@ class _HomePageState extends State<HomePage> with SingleTickerProviderStateMixin
         'title': 'Caja',
         'icon': Icons.account_balance_rounded,
         'page': const CajaPage(),
+        'color': secondaryBlue,
+        'description': 'Control financiero',
+        'gradient': [secondaryBlue, primaryBlue]
+      },
+      {
+        'title': 'Pedidos',
+        'icon': Icons.delivery_dining,
+        'page': const PedidosPage(),
         'color': secondaryBlue,
         'description': 'Control financiero',
         'gradient': [secondaryBlue, primaryBlue]

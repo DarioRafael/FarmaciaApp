@@ -5,6 +5,10 @@ import 'package:http/http.dart' as http;
 import 'package:intl/intl.dart';
 import 'package:flutter/services.dart';
 
+
+import 'pedidos_page.dart';
+
+
 class InventarioPage extends StatefulWidget {
   const InventarioPage({super.key});
 
@@ -1301,7 +1305,7 @@ class _InventarioPageState extends State<InventarioPage> {
                           const Icon(Icons.check),
                           const SizedBox(width: 8),
                           Text(
-                            'Confirmar Reabastecimiento \$${(_totalRestockCost * 1.16).toStringAsFixed(2)}',
+                            'Generar Pedido \$${(_totalRestockCost * 1.16).toStringAsFixed(2)}',
                             style: TextStyle(color: white),
                           ),
                         ],
@@ -1655,117 +1659,183 @@ class _InventarioPageState extends State<InventarioPage> {
     );
 
     try {
-      // Process each selected product
-      for (var producto in _selectedForRestock) {
-        // Call the reabastecimiento API
-        final response = await http.put(
-          Uri.parse(
-              'https://farmaciaserver-ashen.vercel.app/api/v1/medicamentos/${producto['id']}/reabastecer'),
-          headers: {'Content-Type': 'application/json'},
-          body: json.encode({'cantidad': producto['cantidadAReabastecer']}),
-        );
-
-        if (response.statusCode != 200) {
-          throw Exception(
-              'Error al reabastecer el producto ${producto['nombre']}');
-        }
-
-// Update local inventory - ADD to stock (only once)
-        final int index =
-            _productos.indexWhere((p) => p['id'] == producto['id']);
-        if (index != -1) {
-          _productos[index]['stock'] = (_productos[index]['stock'] as int) +
-              (producto['cantidadAReabastecer'] as int);
-        }
-
-        // Update almacen stock - SUBTRACT from almacen
-        final int almacenIndex =
-            _almacenProductos.indexWhere((p) => p['id'] == producto['id']);
-        if (almacenIndex != -1) {
-          _almacenProductos[almacenIndex]['almacenStock'] =
-              (_almacenProductos[almacenIndex]['almacenStock'] as int) -
-                  (producto['cantidadAReabastecer'] as int);
-        }
-      }
-
-      // Register the expense transaction for the restock
+      // En lugar de actualizar el inventario, creamos un pedido
       final todayDate = DateFormat('yyyy-MM-dd').format(DateTime.now());
       final totalUnits = _calcularTotalUnidades();
 
-      // Create a detailed description with product names and their quantities
-      final List<String> detalles = _selectedForRestock.map((producto) {
-        return "${producto['nombre']} (${producto['cantidadAReabastecer']} uds)";
+      // Crear el código de pedido (similar al formato en PedidosPage)
+      final random = Random();
+      final pedidoCode = 'PED-${DateTime.now().year}${DateTime.now().month.toString().padLeft(2, '0')}${(100 + random.nextInt(900)).toString()}';
+
+      // Preparar la lista de productos para el pedido
+      final List<Map<String, dynamic>> productosPedido = _selectedForRestock.map((producto) {
+        return {
+          'nombre': producto['nombre'],
+          'precio': producto['costoReabastecimiento'],
+          'cantidad': producto['cantidadAReabastecer'],
+        };
       }).toList();
 
-      final String detalleProductos = detalles.join(", ");
-      final descripcion =
-          'Reabastecimiento: $totalUnits uds - $detalleProductos';
+      // Crear el objeto de pedido según el formato esperado por la API
+      final Map<String, dynamic> nuevoPedido = {
+        'codigo_pedido': pedidoCode,
+        'proveedor': 'Almacén Central',
+        'estado': 'en_espera',
+        'total': _totalRestockCost,
+        'notas': 'Pedido generado desde Inventario el $todayDate',
+        'productos': productosPedido,
+      };
 
-      // Make API call to create expense transaction
-      final transactionResponse = await http.post(
-        Uri.parse(
-            'https://farmaciaserver-ashen.vercel.app/api/v1/transacciones'),
+      // Enviar el pedido a la API
+      final response = await http.post(
+        Uri.parse('https://farmaciaserver-ashen.vercel.app/api/v1/pedidos'),
         headers: {'Content-Type': 'application/json'},
-        body: json.encode({
-          'descripcion': descripcion,
-          'monto': _totalRestockCost,
-          'tipo': 'egreso',
-          'fecha': todayDate
-        }),
+        body: json.encode(nuevoPedido),
       );
-
-      if (transactionResponse.statusCode != 201) {
-        print(
-            'Advertencia: La transacción financiera no se registró correctamente');
-      }
 
       // Close loading dialog
       Navigator.of(context).pop();
 
-      // Apply changes to filtered products
-      _filterProducts();
+      // Verificar si se pudo crear el pedido
+      if (response.statusCode == 201 || response.statusCode == 200) {
+        // Reset selection
+        setState(() {
+          _selectedForRestock = [];
+          _totalRestockCost = 0.0;
 
-      // Update the UI with new data
-      setState(() {
-        // Reset the selection
-        _selectedForRestock = [];
-        _totalRestockCost = 0.0;
+          // Reset quantities to restock for all products
+          for (var producto in _almacenProductos) {
+            producto['cantidadAReabastecer'] = 0;
+          }
+        });
 
-        // Reset quantities to restock for all products
-        for (var producto in _almacenProductos) {
-          producto['cantidadAReabastecer'] = 0;
-        }
+        // Primero cerrar el diálogo de reabastecimiento
+        Navigator.of(context).pop();
 
-        // Make sure filtered products are updated with current stock values
-        _filteredProducts = List.from(_filteredProducts);
+        // Mostrar mensaje de éxito y el código de pedido generado
+        _mostrarAlertaPedidoCreado(pedidoCode);
 
-        // Make sure inventory displays are also updated
-        _initializeAllInventories();
-      });
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Reabastecimiento completado con éxito'),
-          backgroundColor: Colors.green,
-          duration: Duration(seconds: 2),
-        ),
-      );
-
-      // Close the reabastecimiento dialog
-      Navigator.of(context).pop();
+        // Mostrar notificación de éxito
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('¡Pedido generado exitosamente!'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      } else {
+        // Si hay un error, mostrar el mensaje de la API
+        final errorData = json.decode(response.body);
+        throw Exception('Error al crear el pedido: ${errorData['message'] ?? response.statusCode}');
+      }
     } catch (e) {
       // Close loading dialog
       Navigator.of(context).pop();
 
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text('Error al procesar el reabastecimiento: $e'),
+          content: Text('Error al procesar el pedido: $e'),
           backgroundColor: Colors.red,
           duration: Duration(seconds: 3),
         ),
       );
     }
+  }
+
+  void _mostrarAlertaPedidoCreado(String codigoPedido) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+        ),
+        title: Row(
+          children: [
+            Icon(Icons.check_circle, color: Colors.green, size: 28),
+            SizedBox(width: 10),
+            Text('¡Pedido Creado!'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Tu pedido ha sido creado exitosamente y está en espera de confirmación.',
+              style: TextStyle(fontSize: 16),
+            ),
+            SizedBox(height: 16),
+            Container(
+              padding: EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.blue.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: Colors.blue.withOpacity(0.5)),
+              ),
+              child: Row(
+                children: [
+                  Icon(Icons.receipt_long, color: Colors.blue),
+                  SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Código de Pedido:',
+                          style: TextStyle(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.blue,
+                          ),
+                        ),
+                        SizedBox(height: 4),
+                        Text(
+                          codigoPedido,
+                          style: TextStyle(
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('Cerrar'),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              // Navegar a la página de pedidos
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => PedidosPage()),
+              );
+            },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: primaryBlue,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(8),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text('Ver Pedidos'),
+                SizedBox(width: 4),
+                Icon(Icons.arrow_forward, size: 16),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   void _eliminarProducto(Map<String, dynamic> producto) {
@@ -2189,6 +2259,10 @@ class _InventarioPageState extends State<InventarioPage> {
       actionsWidth = 40.0;
     }
 
+    // Precalcular las listas de tabs y vistas para asegurar que coincidan
+    final List<Tab> tabs = _buildTabs();
+    final List<Widget> tabViews = _buildTabViews(isSmallScreen);
+
     return Scaffold(
       appBar: AppBar(
         elevation: 0,
@@ -2274,27 +2348,27 @@ class _InventarioPageState extends State<InventarioPage> {
 
           _isLoading
               ? Container(
-                  width: 48,
-                  height: 48,
-                  padding: const EdgeInsets.all(12),
-                  child: CircularProgressIndicator(
-                    valueColor: AlwaysStoppedAnimation<Color>(white),
-                    strokeWidth: 2,
-                  ),
-                )
+            width: 48,
+            height: 48,
+            padding: const EdgeInsets.all(12),
+            child: CircularProgressIndicator(
+              valueColor: AlwaysStoppedAnimation<Color>(white),
+              strokeWidth: 2,
+            ),
+          )
               : IconButton(
-                  icon: Icon(Icons.refresh, color: white),
-                  onPressed: () {
-                    _loadProductsFromApi();
-                    // Show a feedback message
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(
-                        content: Text('Actualizando inventario...'),
-                        duration: Duration(seconds: 1),
-                      ),
-                    );
-                  },
+            icon: Icon(Icons.refresh, color: white),
+            onPressed: () {
+              _loadProductsFromApi();
+              // Show a feedback message
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(
+                  content: Text('Actualizando inventario...'),
+                  duration: Duration(seconds: 1),
                 ),
+              );
+            },
+          ),
         ],
       ),
       body: Container(
@@ -2326,9 +2400,7 @@ class _InventarioPageState extends State<InventarioPage> {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: DefaultTabController(
-                    length: _selectedInventories
-                        .where((selected) => selected)
-                        .length,
+                    length: tabs.length, // Usa la longitud real de las pestañas
                     child: Column(
                       children: [
                         Container(
@@ -2344,12 +2416,12 @@ class _InventarioPageState extends State<InventarioPage> {
                             indicatorColor: white,
                             labelColor: white,
                             unselectedLabelColor: lightBlue,
-                            tabs: _buildTabs(),
+                            tabs: tabs, // Usa la lista precalculada
                           ),
                         ),
                         Expanded(
                           child: TabBarView(
-                            children: _buildTabViews(isSmallScreen),
+                            children: tabViews, // Usa la lista precalculada
                           ),
                         ),
                       ],
