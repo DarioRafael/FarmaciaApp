@@ -8,10 +8,6 @@ import 'package:lottie/lottie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
 
-
-
-
-
 class PedidosPage extends StatefulWidget {
   const PedidosPage({super.key});
 
@@ -98,8 +94,7 @@ class _PedidosPageState extends State<PedidosPage>
   }
 
   Future<void> _fetchPedidos() async {
-    const String baseUrl = 'https://modelo-server.vercel.app/api/v1';
-    const String pedidosEndpoint = '/pedidos';
+    const String apiUrl = 'https://farmaciaserver-ashen.vercel.app/api/v1/pedidosGet';
 
     setState(() {
       _isLoading = true;
@@ -107,7 +102,7 @@ class _PedidosPageState extends State<PedidosPage>
     });
 
     try {
-      final response = await http.get(Uri.parse('$baseUrl$pedidosEndpoint'));
+      final response = await http.get(Uri.parse(apiUrl));
 
       if (response.statusCode == 200) {
         final dynamic data = json.decode(response.body);
@@ -119,97 +114,23 @@ class _PedidosPageState extends State<PedidosPage>
             _filterPedidos();
           });
         } else {
-          // For demo purposes, generate mock data if API doesn't return expected format
-          _generateMockPedidos();
+          setState(() {
+            _isLoading = false;
+            _errorMessage = 'Formato de datos incorrecto';
+          });
         }
       } else {
-        // For demo purposes, generate mock data if API fails
-        _generateMockPedidos();
-      }
-    } catch (e) {
-      // For demo purposes, generate mock data on error
-      _generateMockPedidos();
-    }
-  }
-
-  // For demo purposes only
-  void _generateMockPedidos() {
-    final List<String> productNames = [
-      'Paracetamol 500mg',
-      'Amoxicilina 250mg',
-      'Loratadina 10mg',
-      'Omeprazol 20mg',
-      'Ibuprofeno 400mg',
-      'Aspirina 100mg',
-      'Cetirizina 10mg',
-      'Metformina 850mg',
-      'Enalapril 10mg',
-      'Losartán 50mg',
-    ];
-
-    final List<String> proveedores = [
-      'Farmacéutica Nacional',
-      'MediSupply',
-      'Droguería Continental',
-      'FarmaPlus',
-      'Distribuidora Médica',
-    ];
-
-    final List<String> estados = [
-      'en_espera',
-      'confirmado',
-      'pagado',
-      'completado',
-      'cancelado'
-    ];
-
-    final random = DateTime.now().millisecondsSinceEpoch;
-    final List<Map<String, dynamic>> mockPedidos = [];
-
-    for (int i = 1; i <= 20; i++) {
-      final productsCount = 1 + (random + i) % 5;
-      final products = <Map<String, dynamic>>[];
-
-      double total = 0;
-      for (int j = 0; j < productsCount; j++) {
-        final price = 10.0 + ((random + i + j) % 90);
-        final quantity = 1 + ((random + i + j) % 10);
-        final subtotal = price * quantity;
-        total += subtotal;
-
-        products.add({
-          'nombre': productNames[(random + i + j) % productNames.length],
-          'precio': price,
-          'cantidad': quantity,
-          'subtotal': subtotal,
+        setState(() {
+          _isLoading = false;
+          _errorMessage = 'Error al cargar los pedidos: ${response.statusCode}';
         });
       }
-
-      // Create a date in the past 30 days
-      final daysAgo = (random + i) % 30;
-      final date = DateTime.now().subtract(Duration(days: daysAgo));
-
-      mockPedidos.add({
-        'id': i,
-        'proveedor': proveedores[(random + i) % proveedores.length],
-        'fecha_creacion': date.toIso8601String(),
-        'fecha_actualizacion': date
-            .add(Duration(hours: (random + i) % 48))
-            .toIso8601String(),
-        'estado': estados[(random + i) % estados.length],
-        'productos': products,
-        'total': total,
-        'codigo_pedido': 'PED-${date.year}${date.month.toString().padLeft(
-            2, '0')}${i.toString().padLeft(3, '0')}',
-        'notas': i % 3 == 0 ? 'Entregar en horario matutino' : '',
+    } catch (e) {
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Error de conexión: $e';
       });
     }
-
-    setState(() {
-      _pedidos = mockPedidos;
-      _isLoading = false;
-      _filterPedidos();
-    });
   }
 
   void _filterPedidos() {
@@ -598,85 +519,85 @@ class _PedidosPageState extends State<PedidosPage>
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: List.generate(
-          steps.length,
-              (index) => TimelineTile(
-            alignment: TimelineAlign.manual,
-            lineXY: 0.2,
-            isFirst: index == 0,
-            isLast: index == steps.length - 1,
-            indicatorStyle: IndicatorStyle(
-              width: 30,
-              height: 30,
-              indicator: Container(
-                decoration: BoxDecoration(
-                  color: steps[index]['isCompleted']
-                      ? steps[index]['color'] as Color
-                      : Colors.grey[300],
-                  shape: BoxShape.circle,
-                ),
-                child: Icon(
-                  steps[index]['icon'] as IconData,
-                  color: steps[index]['isCompleted']
-                      ? Colors.white
-                      : Colors.grey[600],
-                  size: 16,
-                ),
+        steps.length,
+            (index) => TimelineTile(
+          alignment: TimelineAlign.manual,
+          lineXY: 0.2,
+          isFirst: index == 0,
+          isLast: index == steps.length - 1,
+          indicatorStyle: IndicatorStyle(
+            width: 30,
+            height: 30,
+            indicator: Container(
+              decoration: BoxDecoration(
+                color: steps[index]['isCompleted']
+                    ? steps[index]['color'] as Color
+                    : Colors.grey[300],
+                shape: BoxShape.circle,
               ),
-              drawGap: true,
+              child: Icon(
+                steps[index]['icon'] as IconData,
+                color: steps[index]['isCompleted']
+                    ? Colors.white
+                    : Colors.grey[600],
+                size: 16,
+              ),
             ),
-            beforeLineStyle: LineStyle(
-              color: index == 0
-                  ? Colors.transparent
-                  : steps[index - 1]['isCompleted']
-                  ? steps[index - 1]['color'] as Color
-                  : Colors.grey[300]!,
-              thickness: 2,
-            ),
-            afterLineStyle: LineStyle(
-              color: steps[index]['isCompleted'] && index < steps.length - 1
-                  ? steps[index]['color'] as Color
-                  : Colors.grey[300]!,
-              thickness: 2,
-            ),
-            endChild: Container(
-              padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
+            drawGap: true,
+          ),
+          beforeLineStyle: LineStyle(
+            color: index == 0
+                ? Colors.transparent
+                : steps[index - 1]['isCompleted']
+                ? steps[index - 1]['color'] as Color
+                : Colors.grey[300]!,
+            thickness: 2,
+          ),
+          afterLineStyle: LineStyle(
+            color: steps[index]['isCompleted'] && index < steps.length - 1
+                ? steps[index]['color'] as Color
+                : Colors.grey[300]!,
+            thickness: 2,
+          ),
+          endChild: Container(
+            padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  steps[index]['title'] as String,
+                  style: TextStyle(
+                    color: steps[index]['isCompleted']
+                        ? Colors.black87
+                        : Colors.grey[600],
+                    fontWeight: steps[index]['isCompleted']
+                        ? FontWeight.bold
+                        : FontWeight.normal,
+                  ),
+                ),
+                if (index == 0) const SizedBox(height: 4),
+                if (index == 0)
                   Text(
-                    steps[index]['title'] as String,
+                    _formatDate(pedido['fecha_creacion']),
                     style: TextStyle(
-                      color: steps[index]['isCompleted']
-                          ? Colors.black87
-                          : Colors.grey[600],
-                      fontWeight: steps[index]['isCompleted']
-                          ? FontWeight.bold
-                          : FontWeight.normal,
+                      color: Colors.grey[600],
+                      fontSize: 12,
                     ),
                   ),
-                  if (index == 0) const SizedBox(height: 4),
-                  if (index == 0)
-                    Text(
-                      _formatDate(pedido['fecha_creacion']),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
+                if (index == steps.length - 1 && status == 'completado')
+                  const SizedBox(height: 4),
+                if (index == steps.length - 1 && status == 'completado')
+                  Text(
+                    _formatDate(pedido['fecha_actualizacion']),
+                    style: TextStyle(
+                      color: Colors.grey[600],
+                      fontSize: 12,
                     ),
-                  if (index == steps.length - 1 && status == 'completado')
-                    const SizedBox(height: 4),
-                  if (index == steps.length - 1 && status == 'completado')
-                    Text(
-                      _formatDate(pedido['fecha_actualizacion']),
-                      style: TextStyle(
-                        color: Colors.grey[600],
-                        fontSize: 12,
-                      ),
-                    ),
-                ],
-              ),
+                  ),
+              ],
             ),
           ),
+        ),
       ),
     );
   }
@@ -1118,41 +1039,44 @@ class _PedidosPageState extends State<PedidosPage>
   }
 
   Widget _buildEmptyState() {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Lottie.asset(
-            'assets/animations/empty-box.json',
-            width: 200,
-            height: 200,
-            controller: _emptyAnimationController,
-          ),
-          const SizedBox(height: 20),
-          Text(
-            'No hay pedidos disponibles',
-            style: TextStyle(
-              fontSize: 18,
-              color: Colors.grey[600],
+    return SingleChildScrollView(  // Added ScrollView to prevent overflow
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // Fix 2: Replace Lottie animation with a simple icon
+            // since the animation file is missing
+            Icon(
+              Icons.inventory,
+              size: 100,
+              color: Colors.grey[400],
             ),
-          ),
-          const SizedBox(height: 10),
-          Text(
-            _selectedFilter != 'Todos'
-                ? 'No hay pedidos con estado "$_selectedFilter"'
-                : 'No se encontraron pedidos',
-            style: TextStyle(
-              fontSize: 14,
-              color: Colors.grey[500],
+            const SizedBox(height: 20),
+            Text(
+              'No hay pedidos disponibles',
+              style: TextStyle(
+                fontSize: 18,
+                color: Colors.grey[600],
+              ),
             ),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 20),
-          ElevatedButton(
-            onPressed: _fetchPedidos,
-            child: const Text('Recargar'),
-          ),
-        ],
+            const SizedBox(height: 10),
+            Text(
+              _selectedFilter != 'Todos'
+                  ? 'No hay pedidos con estado "$_selectedFilter"'
+                  : 'No se encontraron pedidos',
+              style: TextStyle(
+                fontSize: 14,
+                color: Colors.grey[500],
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _fetchPedidos,
+              child: const Text('Recargar'),
+            ),
+          ],
+        ),
       ),
     );
   }
