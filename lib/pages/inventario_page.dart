@@ -92,6 +92,7 @@ class _InventarioPageState extends State<InventarioPage> {
     });
 
     _generateAlmacenProductos();
+    //_loadWarehouseInventory();
   }
 
   Future<void> _loadProductsFromApi() async {
@@ -149,7 +150,53 @@ class _InventarioPageState extends State<InventarioPage> {
     }
   }
 
-  void _generateAlmacenProductos() {
+  Future<void> _generateAlmacenProductos() async {
+    setState(() {
+      _isLoading = true;
+    });
+
+    try {
+      final response = await http.get(Uri.parse('https://bodega-server.vercel.app/api/v1/inventarioBodega'));
+
+      if (response.statusCode == 200) {
+        final List<dynamic> data = json.decode(response.body);
+
+        // Mapear los datos al formato esperado
+        setState(() {
+          _almacenProductos = data.map((item) {
+            return {
+              'id': item['ID'],
+              'nombre': item['NombreGenerico'],
+              'nombreMedico': item['NombreMedico'],
+              'fabricante': item['Fabricante'],
+              'contenido': item['Contenido'],
+              'categoria': item['FormaFarmaceutica'],
+              'fechaFabricacion': item['FechaFabricacion'],
+              'presentacion': item['Presentacion'],
+              'fechaCaducidad': item['FechaCaducidad'],
+              'unidadesPorCaja': item['UnidadesPorCaja'],
+              'almacenStock': item['Stock'],
+              'costoReabastecimiento': item['Precio'].toDouble(),
+              'cantidadAReabastecer': 0,
+            };
+          }).toList();
+
+          // Ordenar productos del almacén por nombre alfabéticamente
+          _sortAlmacenProducts();
+        });
+      } else {
+        throw Exception('Error al cargar inventario de la bodega: ${response.statusCode}');
+      }
+    } catch (e) {
+      _showErrorDialog('Error al cargar inventario de la bodega: $e');
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
+  }
+
+  /*void _generateAlmacenProductos() {
     final random = Random();
 
     // Ensure productos is not empty
@@ -183,6 +230,8 @@ class _InventarioPageState extends State<InventarioPage> {
     setState(() {});
     print("Almacén generado con ${_almacenProductos.length} productos");
   }
+*/
+
 
   Future<void> _loadLocalInventory() async {
     setState(() {
