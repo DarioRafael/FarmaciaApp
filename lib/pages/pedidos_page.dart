@@ -264,15 +264,24 @@ class _PedidosPageState extends State<PedidosPage>
   Widget _buildPaymentMethodsSheet(int pedidoId) {
     // Find the pedido
     final pedido = _pedidos.firstWhere((p) => p['id'] == pedidoId);
+    final String folioPago = 'FP-${DateTime.now().millisecondsSinceEpoch.toString().substring(5)}';
 
     return Container(
       height: MediaQuery.of(context).size.height * 0.7,
-      decoration: const BoxDecoration(
+      decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.only(
+        borderRadius: const BorderRadius.only(
           topLeft: Radius.circular(25.0),
           topRight: Radius.circular(25.0),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.3),
+            spreadRadius: 2,
+            blurRadius: 10,
+            offset: const Offset(0, -3),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -285,18 +294,35 @@ class _PedidosPageState extends State<PedidosPage>
               borderRadius: BorderRadius.circular(10),
             ),
           ),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text(
-              'Seleccionar método de pago',
-              style: TextStyle(
-                fontSize: 22,
-                fontWeight: FontWeight.bold,
-              ),
+          Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                    Icons.payments_rounded,
+                    color: Colors.purple[600],
+                    size: 28
+                ),
+                const SizedBox(width: 10),
+                const Text(
+                  'Realizar Pago',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          Container(
+            margin: const EdgeInsets.symmetric(horizontal: 16.0),
+            padding: const EdgeInsets.all(16.0),
+            decoration: BoxDecoration(
+              color: Colors.green[50],
+              borderRadius: BorderRadius.circular(16),
+              border: Border.all(color: Colors.green.withOpacity(0.3)),
+            ),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
@@ -304,7 +330,8 @@ class _PedidosPageState extends State<PedidosPage>
                   'Total a pagar',
                   style: TextStyle(
                     fontSize: 16,
-                    color: Colors.grey[600],
+                    color: Colors.grey[800],
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
                 Text(
@@ -318,39 +345,73 @@ class _PedidosPageState extends State<PedidosPage>
               ],
             ),
           ),
-          const Divider(height: 32),
+          const SizedBox(height: 16),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 16.0),
+            child: Text(
+              'Selecciona tu método de pago preferido',
+              style: TextStyle(
+                fontSize: 15,
+                color: Colors.grey[600],
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
           Expanded(
             child: ListView(
               padding: const EdgeInsets.symmetric(horizontal: 16.0),
               children: [
-                _buildPaymentMethodTile(
+                _buildPaymentMethodCard(
                   'Transferencia Bancaria',
                   Icons.account_balance,
                   Colors.blue,
                   pedidoId,
+                  [
+                    {'label': 'Banco:', 'value': 'BancoFarmacia'},
+                    {'label': 'Cuenta:', 'value': '0123 4567 8901 2345'},
+                    {'label': 'CLABE:', 'value': '012345678901234567'},
+                    {'label': 'Referencia:', 'value': folioPago},
+                  ],
                 ),
-                _buildPaymentMethodTile(
+                _buildPaymentMethodCard(
                   'Tarjeta de Crédito/Débito',
                   Icons.credit_card,
                   Colors.purple,
                   pedidoId,
+                  [
+                    {'label': 'Tarjeta registrada:', 'value': '•••• •••• •••• 4589'},
+                    {'label': 'Titular:', 'value': 'FARMACIA SA DE CV'},
+                    {'label': 'Vencimiento:', 'value': '03/2026'},
+                  ],
                 ),
-                _buildPaymentMethodTile(
+                _buildPaymentMethodCard(
                   'Pago en Efectivo',
                   Icons.attach_money,
                   Colors.green,
                   pedidoId,
+                  [
+                    {'label': 'Monto:', 'value': '\$${pedido['total'].toStringAsFixed(2)}'},
+                    {'label': 'Folio de pago:', 'value': folioPago},
+                    {'label': 'Vigencia:', 'value': '48 horas'},
+                  ],
                 ),
                 const SizedBox(height: 20),
                 const Divider(),
                 ListTile(
                   contentPadding: EdgeInsets.zero,
-                  title: const Text(
-                    'Resumen del pedido',
-                    style: TextStyle(
-                      fontWeight: FontWeight.bold,
-                      fontSize: 18,
-                    ),
+                  title: Row(
+                    children: [
+                      Icon(Icons.receipt_long, color: Colors.grey[600]),
+                      const SizedBox(width: 8),
+                      const Text(
+                        'Resumen del pedido',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 18,
+                        ),
+                      ),
+                    ],
                   ),
                   trailing: Icon(
                     Icons.keyboard_arrow_down,
@@ -360,14 +421,40 @@ class _PedidosPageState extends State<PedidosPage>
                 ...List.generate(
                   pedido['productos'].length,
                       (index) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8.0),
+                    padding: const EdgeInsets.only(bottom: 12.0),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(
-                          '${pedido['productos'][index]['cantidad']}x ${pedido['productos'][index]['nombre']}',
-                          style: TextStyle(
-                            color: Colors.grey[800],
+                        Expanded(
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 36,
+                                height: 36,
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: const Center(
+                                  child: Icon(
+                                    Icons.medication_outlined,
+                                    color: Colors.grey,
+                                    size: 18,
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  '${pedido['productos'][index]['cantidad']}x ${pedido['productos'][index]['nombre']}',
+                                  style: TextStyle(
+                                    color: Colors.grey[800],
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                         Text(
@@ -383,11 +470,28 @@ class _PedidosPageState extends State<PedidosPage>
               ],
             ),
           ),
+          const Divider(),
           Padding(
             padding: const EdgeInsets.all(16.0),
-            child: TextButton(
-              onPressed: () => Navigator.of(context).pop(),
-              child: const Text('Cancelar'),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                TextButton.icon(
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.arrow_back),
+                  label: const Text('Volver'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.grey[700],
+                  ),
+                ),
+                TextButton(
+                  onPressed: () => Navigator.of(context).pop(),
+                  child: const Text('Cancelar'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: Colors.red,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -395,50 +499,119 @@ class _PedidosPageState extends State<PedidosPage>
     );
   }
 
-  Widget _buildPaymentMethodTile(String title, IconData icon, Color color,
-      int pedidoId) {
+
+  Widget _buildPaymentMethodCard(String title, IconData icon, Color color, int pedidoId, List<Map<String, String>> details) {
     return Card(
-      elevation: 2,
-      margin: const EdgeInsets.only(bottom: 12),
+      elevation: 3,
+      margin: const EdgeInsets.only(bottom: 16),
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(16),
       ),
-      child: InkWell(
-        onTap: () {
-          Navigator.of(context).pop();
-          // Process payment and update status
-          _changePedidoStatus(pedidoId, 'pagado');
-        },
-        borderRadius: BorderRadius.circular(12),
-        child: Padding(
-          padding: const EdgeInsets.all(16.0),
-          child: Row(
-            children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(12),
+      child: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: color.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Icon(
+                    icon,
+                    color: color,
+                    size: 28,
+                  ),
                 ),
-                child: Icon(
-                  icon,
-                  color: color,
-                  size: 28,
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Text(
+                    title,
+                    style: const TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            // Mostrar detalles del método de pago
+            ...details.map((detail) => Padding(
+              padding: const EdgeInsets.only(bottom: 8.0),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Text(
+                    detail['label']!,
+                    style: TextStyle(
+                      color: Colors.grey[700],
+                      fontSize: 14,
+                    ),
+                  ),
+                  Text(
+                    detail['value']!,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w500,
+                      fontSize: 14,
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+            )).toList(),
+            const SizedBox(height: 16),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: () {
+                  Navigator.of(context).pop();
+                  // Mostrar un diálogo de confirmación
+                  showDialog(
+                    context: context,
+                    builder: (context) => AlertDialog(
+                      title: Row(
+                        children: [
+                          Icon(Icons.check_circle, color: Colors.green),
+                          SizedBox(width: 10),
+                          Text('Confirmación de Pago'),
+                        ],
+                      ),
+                      content: Text('¿Confirmas que has realizado el pago de \$${_pedidos.firstWhere((p) => p['id'] == pedidoId)['total'].toStringAsFixed(2)} usando $title?'),
+                      actions: [
+                        TextButton(
+                          onPressed: () => Navigator.of(context).pop(),
+                          child: Text('Cancelar'),
+                        ),
+                        ElevatedButton(
+                          onPressed: () {
+                            Navigator.of(context).pop();
+                            _changePedidoStatus(pedidoId, 'pagado');
+                          },
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                          ),
+                          child: Text('Confirmar Pago'),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+                icon: const Icon(Icons.done),
+                label: const Text('Proceder con el Pago'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: color,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12),
                   ),
                 ),
               ),
-              const Icon(Icons.arrow_forward_ios, size: 18),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -451,25 +624,29 @@ class _PedidosPageState extends State<PedidosPage>
         'title': 'Pedido creado',
         'icon': Icons.shopping_cart_outlined,
         'isCompleted': true,
-        'color': Colors.blue,
+        'color': Colors.blue[400]!,
+        'description': 'Pedido registrado en el sistema',
       },
       {
         'title': 'Confirmado por proveedor',
         'icon': Icons.check_circle_outline,
         'isCompleted': ['confirmado', 'pagado', 'completado'].contains(status),
-        'color': Colors.blue,
+        'color': Colors.blue[600]!,
+        'description': 'El proveedor ha aceptado tu pedido',
       },
       {
         'title': 'Pago realizado',
         'icon': Icons.payments_outlined,
         'isCompleted': ['pagado', 'completado'].contains(status),
-        'color': Colors.purple,
+        'color': Colors.purple[600]!,
+        'description': 'Se ha registrado el pago correctamente',
       },
       {
         'title': 'Recibido en inventario',
-        'icon': Icons.inventory,
+        'icon': Icons.inventory_2_outlined,
         'isCompleted': status == 'completado',
-        'color': Colors.green,
+        'color': Colors.green[600]!,
+        'description': 'Productos agregados al inventario',
       },
     ];
 
@@ -716,10 +893,18 @@ class _PedidosPageState extends State<PedidosPage>
 
     return Slidable(
       key: ValueKey(pedido['id']),
+
       endActionPane: ActionPane(
         motion: const ScrollMotion(),
         children: [
-          if (status == 'en_espera')
+          if (status == 'en_espera') ...[
+            SlidableAction(
+              onPressed: (_) => _changePedidoStatus(pedido['id'], 'confirmado'),
+              backgroundColor: Colors.blue,
+              foregroundColor: Colors.white,
+              icon: Icons.check_circle,
+              label: 'Confirmar',
+            ),
             SlidableAction(
               onPressed: (_) => _cancelOrder(pedido['id']),
               backgroundColor: Colors.red,
@@ -727,10 +912,11 @@ class _PedidosPageState extends State<PedidosPage>
               icon: Icons.cancel,
               label: 'Cancelar',
             ),
+          ],
           if (status == 'confirmado')
             SlidableAction(
               onPressed: (_) => _processPayment(pedido['id']),
-              backgroundColor: Colors.green,
+              backgroundColor: Colors.purple,
               foregroundColor: Colors.white,
               icon: Icons.payment,
               label: 'Pagar',
