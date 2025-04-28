@@ -7,6 +7,7 @@ import 'package:timeline_tile/timeline_tile.dart';
 import 'package:lottie/lottie.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:shimmer/shimmer.dart';
+import 'payment_service.dart';  // Ajusta la ruta según tu estructura de proyecto
 
 class PedidosPage extends StatefulWidget {
   const PedidosPage({super.key});
@@ -205,26 +206,82 @@ class _PedidosPageState extends State<PedidosPage>
   }
 
   Future<void> _changePedidoStatus(int pedidoId, String newStatus) async {
-    // Implement actual API call here
     setState(() {
-      final index = _pedidos.indexWhere((p) => p['id'] == pedidoId);
-      if (index != -1) {
-        _pedidos[index]['estado'] = newStatus;
-        _pedidos[index]['fecha_actualizacion'] =
-            DateTime.now().toIso8601String();
+      _isLoading = true;
+    });
 
-        // Show success message
+    try {
+      if (newStatus == 'pagado') {
+        // Encontrar el pedido que queremos marcar como pagado
+        final pedido = _pedidos.firstWhere((p) => p['id'] == pedidoId);
+
+        // Usar el PaymentService para confirmar el pago y registrar la transacción
+        final result = await PaymentService.confirmPayment(
+          pedidoId: pedidoId,
+          codigoPedido: pedido['codigo_pedido'],
+          proveedor: pedido['proveedor'],
+          monto: pedido['total'],
+          metodoPago: 'Transferencia Bancaria', // O el método seleccionado por el usuario
+        );
+
+        if (result['success']) {
+          setState(() {
+            final index = _pedidos.indexWhere((p) => p['id'] == pedidoId);
+            if (index != -1) {
+              _pedidos[index]['estado'] = newStatus;
+              _pedidos[index]['fecha_actualizacion'] = DateTime.now().toIso8601String();
+              _filterPedidos();
+            }
+          });
+
+          // Mostrar mensaje de éxito
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Pago confirmado y registrado correctamente'),
+              backgroundColor: _getStatusColor(newStatus),
+            ),
+          );
+        } else {
+          // Mostrar mensaje de error
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(result['message']),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } else {
+        // Para otros cambios de estado, mantén la implementación actual
+        setState(() {
+          final index = _pedidos.indexWhere((p) => p['id'] == pedidoId);
+          if (index != -1) {
+            _pedidos[index]['estado'] = newStatus;
+            _pedidos[index]['fecha_actualizacion'] = DateTime.now().toIso8601String();
+            _filterPedidos();
+          }
+        });
+
+        // Mostrar mensaje de éxito
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-                'Estado del pedido actualizado a ${_getStatusText(newStatus)}'),
+            content: Text('Estado del pedido actualizado a ${_getStatusText(newStatus)}'),
             backgroundColor: _getStatusColor(newStatus),
           ),
         );
-
-        _filterPedidos();
       }
-    });
+    } catch (e) {
+      // Mostrar mensaje de error
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al actualizar el estado: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    } finally {
+      setState(() {
+        _isLoading = false;
+      });
+    }
   }
 
   Future<void> _cancelOrder(int pedidoId) async {
@@ -836,52 +893,73 @@ class _PedidosPageState extends State<PedidosPage>
       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
       children: [
         if (status == 'en_espera')
-          ElevatedButton(
-            onPressed: () => _changePedidoStatus(pedido['id'], 'confirmado'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.blue,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => _changePedidoStatus(pedido['id'], 'confirmado'),
+              icon: const Icon(Icons.check_circle_outline),
+              label: const Text('Confirmar Pedido'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.blue[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                elevation: 0,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: const Text('Confirmar Pedido'),
           ),
         if (status == 'confirmado')
-          ElevatedButton(
-            onPressed: () => _processPayment(pedido['id']),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.purple,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => _processPayment(pedido['id']),
+              icon: const Icon(Icons.payment),
+              label: const Text('Procesar Pago'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.purple[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                elevation: 0,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: const Text('Procesar Pago'),
           ),
         if (status == 'pagado')
-          ElevatedButton(
-            onPressed: () => _changePedidoStatus(pedido['id'], 'completado'),
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.green,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Expanded(
+            child: ElevatedButton.icon(
+              onPressed: () => _changePedidoStatus(pedido['id'], 'completado'),
+              icon: const Icon(Icons.inventory_2_outlined),
+              label: const Text('Marcar como Completado'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.green[600],
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                elevation: 0,
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: const Text('Marcar como Completado'),
           ),
+        if ((status == 'en_espera' || status == 'confirmado') && (status == 'pagado' || status == 'completado' ? false : true))
+          const SizedBox(width: 12),
         if (status == 'en_espera' || status == 'confirmado')
-          TextButton(
-            onPressed: () => _cancelOrder(pedido['id']),
-            style: TextButton.styleFrom(
-              foregroundColor: Colors.red,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(12),
+          Expanded(
+            child: OutlinedButton.icon(
+              onPressed: () => _cancelOrder(pedido['id']),
+              icon: const Icon(Icons.cancel_outlined),
+              label: const Text('Cancelar Pedido'),
+              style: OutlinedButton.styleFrom(
+                foregroundColor: Colors.red[600],
+                side: BorderSide(color: Colors.red[300]!),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
             ),
-            child: const Text('Cancelar Pedido'),
           ),
       ],
     );
@@ -891,216 +969,281 @@ class _PedidosPageState extends State<PedidosPage>
     final String status = pedido['estado'];
     final bool isExpanded = _expandedPedidoId == pedido['id'];
 
-    return Slidable(
-      key: ValueKey(pedido['id']),
-
-      endActionPane: ActionPane(
-        motion: const ScrollMotion(),
-        children: [
-          if (status == 'en_espera') ...[
-            SlidableAction(
-              onPressed: (_) => _changePedidoStatus(pedido['id'], 'confirmado'),
-              backgroundColor: Colors.blue,
-              foregroundColor: Colors.white,
-              icon: Icons.check_circle,
-              label: 'Confirmar',
-            ),
-            SlidableAction(
-              onPressed: (_) => _cancelOrder(pedido['id']),
-              backgroundColor: Colors.red,
-              foregroundColor: Colors.white,
-              icon: Icons.cancel,
-              label: 'Cancelar',
-            ),
-          ],
-          if (status == 'confirmado')
-            SlidableAction(
-              onPressed: (_) => _processPayment(pedido['id']),
-              backgroundColor: Colors.purple,
-              foregroundColor: Colors.white,
-              icon: Icons.payment,
-              label: 'Pagar',
-            ),
+    return Container(
+      margin: const EdgeInsets.fromLTRB(16, 8, 16, 8),
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.grey.withOpacity(0.1),
+            spreadRadius: 1,
+            blurRadius: 6,
+            offset: const Offset(0, 3),
+          ),
         ],
       ),
-      child: Card(
-        elevation: 3,
-        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(16),
-          side: BorderSide(
-            color: _getStatusColor(status).withOpacity(0.3),
-            width: 1.5,
-          ),
-        ),
-        child: Column(
+      child: Slidable(
+        key: ValueKey(pedido['id']),
+        endActionPane: ActionPane(
+          extentRatio: 0.5,
+          motion: const DrawerMotion(),
           children: [
-            InkWell(
-              onTap: () {
-                setState(() {
-                  _expandedPedidoId = isExpanded ? null : pedido['id'];
-                });
-              },
-              borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(16),
-                bottomRight: Radius.circular(16),
+            if (status == 'en_espera') ...[
+              SlidableAction(
+                onPressed: (_) => _changePedidoStatus(pedido['id'], 'confirmado'),
+                backgroundColor: Colors.blue[600]!,
+                foregroundColor: Colors.white,
+                icon: Icons.check_circle,
+                borderRadius: const BorderRadius.only(
+                  topLeft: Radius.circular(20),
+                  bottomLeft: Radius.circular(20),
+                ),
+                label: 'Confirmar',
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(16.0),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.all(8),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(status).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(8),
+              SlidableAction(
+                onPressed: (_) => _cancelOrder(pedido['id']),
+                backgroundColor: Colors.red[600]!,
+                foregroundColor: Colors.white,
+                icon: Icons.cancel,
+                borderRadius: const BorderRadius.only(
+                  topRight: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                label: 'Cancelar',
+              ),
+            ],
+            if (status == 'confirmado')
+              SlidableAction(
+                onPressed: (_) => _processPayment(pedido['id']),
+                backgroundColor: Colors.purple[600]!,
+                foregroundColor: Colors.white,
+                icon: Icons.payment,
+                borderRadius: BorderRadius.circular(20),
+                label: 'Pagar',
+              ),
+          ],
+        ),
+        child: Card(
+          elevation: 0,
+          margin: EdgeInsets.zero,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+            side: BorderSide(
+              color: _getStatusColor(status).withOpacity(0.3),
+              width: 1.5,
+            ),
+          ),
+          child: Column(
+            children: [
+              InkWell(
+                onTap: () {
+                  setState(() {
+                    _expandedPedidoId = isExpanded ? null : pedido['id'];
+                  });
+                },
+                borderRadius: BorderRadius.vertical(
+                  top: const Radius.circular(20),
+                  bottom: isExpanded
+                      ? Radius.zero
+                      : const Radius.circular(20),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.all(10),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(status).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(12),
+                                ),
+                                child: Icon(
+                                  _getStatusIcon(status),
+                                  color: _getStatusColor(status),
+                                  size: 22,
+                                ),
                               ),
-                              child: Icon(
-                                _getStatusIcon(status),
-                                color: _getStatusColor(status),
-                                size: 20,
+                              const SizedBox(width: 12),
+                              Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    pedido['codigo_pedido'],
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 17,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    pedido['proveedor'],
+                                    style: TextStyle(
+                                      color: Colors.grey[700],
+                                      fontSize: 14,
+                                    ),
+                                  ),
+                                ],
                               ),
-                            ),
-                            const SizedBox(width: 12),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  pedido['codigo_pedido'],
-                                  style: const TextStyle(
+                            ],
+                          ),
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 10,
+                                  vertical: 5,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getStatusColor(status).withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
+                                child: Text(
+                                  _getStatusText(status),
+                                  style: TextStyle(
+                                    color: _getStatusColor(status),
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 16,
+                                    fontSize: 12,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                '\$${pedido['total'].toStringAsFixed(2)}',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                  color: Colors.green[700],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 16),
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Row(
+                            children: [
+                              Container(
+                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                decoration: BoxDecoration(
+                                  color: Colors.grey[100],
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.calendar_today_outlined,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Text(
+                                      _formatDate(pedido['fecha_creacion']),
+                                      style: TextStyle(
+                                        color: Colors.grey[700],
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w500,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            ],
+                          ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: Colors.blue[50],
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
                                 Text(
-                                  pedido['proveedor'],
+                                  'Ver detalles',
                                   style: TextStyle(
-                                    color: Colors.grey[600],
-                                    fontSize: 14,
+                                    color: Colors.blue[700],
+                                    fontWeight: FontWeight.w500,
+                                    fontSize: 13,
                                   ),
+                                ),
+                                Icon(
+                                  isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                                  color: Colors.blue[700],
+                                  size: 16,
                                 ),
                               ],
                             ),
-                          ],
-                        ),
-                        Column(
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          children: [
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 4,
-                              ),
-                              decoration: BoxDecoration(
-                                color: _getStatusColor(status).withOpacity(0.1),
-                                borderRadius: BorderRadius.circular(12),
-                              ),
-                              child: Text(
-                                _getStatusText(status),
-                                style: TextStyle(
-                                  color: _getStatusColor(status),
-                                  fontWeight: FontWeight.bold,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              '\$${pedido['total'].toStringAsFixed(2)}',
-                              style: const TextStyle(
-                                fontWeight: FontWeight.bold,
-                                fontSize: 16,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-                    Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Row(
-                          children: [
-                            const Icon(
-                                Icons.schedule, size: 14, color: Colors.grey),
-                            const SizedBox(width: 4),
-                            Text(
-                              _formatDate(pedido['fecha_creacion']),
-                              style: TextStyle(
-                                color: Colors.grey[600],
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                        Row(
-                          children: [
-                            Text(
-                              'Ver detalles',
-                              style: TextStyle(
-                                color: Colors.blue[700],
-                                fontWeight: FontWeight.w500,
-                                fontSize: 13,
-                              ),
-                            ),
-                            Icon(
-                              isExpanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
-                              color: Colors.blue[700],
-                              size: 16,
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
-                  ],
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
-            if (isExpanded) _buildExpandedDetails(pedido),
-          ],
+              if (isExpanded) _buildExpandedDetails(pedido),
+            ],
+          ),
         ),
       ),
     );
   }
 
+
   Widget _buildExpandedDetails(Map<String, dynamic> pedido) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
       decoration: BoxDecoration(
         color: Colors.grey[50],
         borderRadius: const BorderRadius.only(
-          bottomLeft: Radius.circular(16),
-          bottomRight: Radius.circular(16),
+          bottomLeft: Radius.circular(20),
+          bottomRight: Radius.circular(20),
         ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(
-            'Productos',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.grey[800],
-            ),
+          const Divider(height: 24),
+          Row(
+            children: [
+              Icon(Icons.inventory_2_outlined, color: Colors.blue[800], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Productos',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: Colors.blue[800],
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 12),
           ...List.generate(
             pedido['productos'].length,
-                (index) => Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
+                (index) => Container(
+              margin: const EdgeInsets.only(bottom: 12.0),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(12),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.grey.withOpacity(0.05),
+                    spreadRadius: 1,
+                    blurRadius: 3,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -1108,16 +1251,17 @@ class _PedidosPageState extends State<PedidosPage>
                     child: Row(
                       children: [
                         Container(
-                          width: 40,
-                          height: 40,
+                          width: 45,
+                          height: 45,
                           decoration: BoxDecoration(
-                            color: Colors.grey[200],
-                            borderRadius: BorderRadius.circular(8),
+                            color: Colors.blue[50],
+                            borderRadius: BorderRadius.circular(10),
                           ),
-                          child: const Center(
+                          child: Center(
                             child: Icon(
                               Icons.medication_outlined,
-                              color: Colors.grey,
+                              color: Colors.blue[400],
+                              size: 22,
                             ),
                           ),
                         ),
@@ -1129,14 +1273,15 @@ class _PedidosPageState extends State<PedidosPage>
                               Text(
                                 pedido['productos'][index]['nombre'],
                                 style: const TextStyle(
-                                  fontWeight: FontWeight.w500,
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 14,
                                 ),
                                 maxLines: 2,
                                 overflow: TextOverflow.ellipsis,
                               ),
+                              const SizedBox(height: 4),
                               Text(
-                                '\$${pedido['productos'][index]['precio']
-                                    .toStringAsFixed(2)} c/u',
+                                '\$${pedido['productos'][index]['precio'].toStringAsFixed(2)} c/u',
                                 style: TextStyle(
                                   color: Colors.grey[600],
                                   fontSize: 12,
@@ -1149,67 +1294,94 @@ class _PedidosPageState extends State<PedidosPage>
                     ),
                   ),
                   const SizedBox(width: 8),
-                  Text(
-                    '${pedido['productos'][index]['cantidad']} unid.',
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    '\$${pedido['productos'][index]['subtotal']
-                        .toStringAsFixed(2)}',
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                    ),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        decoration: BoxDecoration(
+                          color: Colors.grey[100],
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          '${pedido['productos'][index]['cantidad']} unid.',
+                          style: TextStyle(
+                            color: Colors.grey[700],
+                            fontWeight: FontWeight.w500,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        '\$${pedido['productos'][index]['subtotal'].toStringAsFixed(2)}',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          color: Colors.green[700],
+                          fontSize: 14,
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
           ),
-          const Divider(),
-          const SizedBox(height: 8),
-          Text(
-            'Estado del pedido',
-            style: TextStyle(
-              fontWeight: FontWeight.bold,
-              fontSize: 16,
-              color: Colors.grey[800],
-            ),
+          const Divider(height: 30),
+          Row(
+            children: [
+              Icon(Icons.timeline, color: Colors.purple[700], size: 20),
+              const SizedBox(width: 8),
+              Text(
+                'Estado del pedido',
+                style: TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 17,
+                  color: Colors.purple[700],
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 16),
           _buildOrderTimeline(pedido),
           if (pedido['notas'] != null && pedido['notas'].isNotEmpty) ...[
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 8),
-            Text(
-              'Notas',
-              style: TextStyle(
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
-                color: Colors.grey[800],
-              ),
+            const Divider(height: 30),
+            Row(
+              children: [
+                Icon(Icons.note_alt_outlined, color: Colors.amber[700], size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  'Notas',
+                  style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 17,
+                    color: Colors.amber[700],
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: 12),
             Container(
-              padding: const EdgeInsets.all(12),
+              padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.yellow[50],
-                borderRadius: BorderRadius.circular(8),
+                color: Colors.amber[50],
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(
-                  color: Colors.yellow[200]!,
+                  color: Colors.amber[200]!,
+                  width: 1,
                 ),
               ),
               child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Icon(Icons.sticky_note_2_outlined, color: Colors.yellow[800]),
-                  const SizedBox(width: 8),
+                  Icon(Icons.sticky_note_2_outlined, color: Colors.amber[700], size: 20),
+                  const SizedBox(width: 12),
                   Expanded(
                     child: Text(
                       pedido['notas'],
                       style: TextStyle(
                         color: Colors.grey[800],
+                        height: 1.4,
                       ),
                     ),
                   ),
@@ -1217,51 +1389,85 @@ class _PedidosPageState extends State<PedidosPage>
               ),
             ),
           ],
-          const SizedBox(height: 16),
-          _buildActionButtons(pedido),
+          const SizedBox(height: 24),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.grey.withOpacity(0.1),
+                  spreadRadius: 1,
+                  blurRadius: 4,
+                  offset: const Offset(0, 2),
+                ),
+              ],
+            ),
+            padding: const EdgeInsets.all(16),
+            child: _buildActionButtons(pedido),
+          ),
         ],
       ),
     );
   }
 
   Widget _buildEmptyState() {
-    return SingleChildScrollView(  // Added ScrollView to prevent overflow
-      child: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Fix 2: Replace Lottie animation with a simple icon
-            // since the animation file is missing
-            Icon(
-              Icons.inventory,
-              size: 100,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 20),
-            Text(
-              'No hay pedidos disponibles',
-              style: TextStyle(
-                fontSize: 18,
-                color: Colors.grey[600],
+    return Center(
+      child: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(24.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Container(
+                width: 140,
+                height: 140,
+                decoration: BoxDecoration(
+                  color: Colors.blue[50],
+                  borderRadius: BorderRadius.circular(70),
+                ),
+                child: Icon(
+                  Icons.inventory_2_outlined,
+                  size: 70,
+                  color: Colors.blue[300],
+                ),
               ),
-            ),
-            const SizedBox(height: 10),
-            Text(
-              _selectedFilter != 'Todos'
-                  ? 'No hay pedidos con estado "$_selectedFilter"'
-                  : 'No se encontraron pedidos',
-              style: TextStyle(
-                fontSize: 14,
-                color: Colors.grey[500],
+              const SizedBox(height: 24),
+              Text(
+                'No hay pedidos disponibles',
+                style: TextStyle(
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[800],
+                ),
               ),
-              textAlign: TextAlign.center,
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: _fetchPedidos,
-              child: const Text('Recargar'),
-            ),
-          ],
+              const SizedBox(height: 12),
+              Text(
+                _selectedFilter != 'Todos'
+                    ? 'No se encontraron pedidos con estado "$_selectedFilter"'
+                    : 'Aún no hay pedidos registrados en el sistema',
+                style: TextStyle(
+                  fontSize: 16,
+                  color: Colors.grey[600],
+                ),
+                textAlign: TextAlign.center,
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton.icon(
+                onPressed: _fetchPedidos,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Recargar Pedidos'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.blue[600],
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -1270,66 +1476,118 @@ class _PedidosPageState extends State<PedidosPage>
   Widget _buildLoadingState() {
     return ListView.builder(
       padding: const EdgeInsets.all(16),
-      itemCount: 5,
+      itemCount: 4,
       itemBuilder: (context, index) {
-        return Card(
+        return Container(
           margin: const EdgeInsets.only(bottom: 16),
-          child: Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Shimmer.fromColors(
-              baseColor: Colors.grey[300]!,
-              highlightColor: Colors.grey[100]!,
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: Colors.white,
-                          borderRadius: BorderRadius.circular(8),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(20),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.grey.withOpacity(0.1),
+                spreadRadius: 1,
+                blurRadius: 6,
+                offset: const Offset(0, 3),
+              ),
+            ],
+          ),
+          child: Card(
+            margin: EdgeInsets.zero,
+            elevation: 0,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(20),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Shimmer.fromColors(
+                baseColor: Colors.grey[300]!,
+                highlightColor: Colors.grey[100]!,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 50,
+                          height: 50,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
                         ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: double.infinity,
+                                height: 18,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                              const SizedBox(height: 8),
+                              Container(
+                                width: 120,
+                                height: 14,
+                                decoration: BoxDecoration(
+                                  color: Colors.white,
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
                             Container(
-                              width: double.infinity,
-                              height: 16,
-                              color: Colors.white,
+                              width: 80,
+                              height: 22,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
                             ),
                             const SizedBox(height: 8),
                             Container(
-                              width: 120,
-                              height: 12,
-                              color: Colors.white,
+                              width: 60,
+                              height: 18,
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(4),
+                              ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Container(
-                        width: 100,
-                        height: 12,
-                        color: Colors.white,
-                      ),
-                      Container(
-                        width: 80,
-                        height: 12,
-                        color: Colors.white,
-                      ),
-                    ],
-                  ),
-                ],
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        Container(
+                          width: 120,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(4),
+                          ),
+                        ),
+                        Container(
+                          width: 90,
+                          height: 16,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
