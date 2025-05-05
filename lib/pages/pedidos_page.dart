@@ -208,12 +208,35 @@ class _PedidosPageState extends State<PedidosPage>
   Future<void> _changePedidoStatus(int pedidoId, String newStatus) async {
     setState(() {
       _isLoading = true;
+      _errorMessage = '';
     });
 
     try {
       if (newStatus == 'pagado') {
         // Encontrar el pedido que queremos marcar como pagado
         final pedido = _pedidos.firstWhere((p) => p['id'] == pedidoId);
+
+        // Mostrar indicador de carga
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(
+                    strokeWidth: 2,
+                    valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                const Text('Procesando pago...'),
+              ],
+            ),
+            duration: const Duration(seconds: 30),
+            backgroundColor: Colors.blue[700],
+          ),
+        );
 
         // Usar el PaymentService para confirmar el pago y registrar la transacción
         final result = await PaymentService.confirmPayment(
@@ -223,6 +246,9 @@ class _PedidosPageState extends State<PedidosPage>
           monto: pedido['total'],
           metodoPago: 'Transferencia Bancaria', // O el método seleccionado por el usuario
         );
+
+        // Ocultar el indicador de carga
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
 
         if (result['success']) {
           setState(() {
@@ -234,18 +260,54 @@ class _PedidosPageState extends State<PedidosPage>
             }
           });
 
+          // Revisar si hubo problemas con la transacción en bodega
+          final bool bodegaSuccess = result.containsKey('bodegaResult') &&
+              result['bodegaResult'] != null &&
+              result['bodegaResult']['success'] == true;
+
           // Mostrar mensaje de éxito
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Pago confirmado y registrado correctamente'),
-              backgroundColor: _getStatusColor(newStatus),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Icon(
+                        bodegaSuccess ? Icons.check_circle : Icons.warning,
+                        color: Colors.white,
+                      ),
+                      const SizedBox(width: 12),
+                      const Text('Pago confirmado'),
+                    ],
+                  ),
+                  if (!bodegaSuccess)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 8.0),
+                      child: Text(
+                        'Advertencia: ${result['bodegaResult']?['message'] ?? 'No se pudo registrar en bodega'}',
+                        style: const TextStyle(fontSize: 12),
+                      ),
+                    ),
+                ],
+              ),
+              backgroundColor: bodegaSuccess ? _getStatusColor(newStatus) : Colors.orange,
+              duration: const Duration(seconds: 4),
+              action: !bodegaSuccess
+                  ? SnackBarAction(
+                label: 'Reintentar',
+                textColor: Colors.white,
+                onPressed: () => _retryBodegaRegistration(pedido),
+              )
+                  : null,
             ),
           );
         } else {
           // Mostrar mensaje de error
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(result['message']),
+              content: Text(result['message'] ?? 'Error al procesar el pago'),
               backgroundColor: Colors.red,
             ),
           );
@@ -283,6 +345,67 @@ class _PedidosPageState extends State<PedidosPage>
       });
     }
   }
+
+// Método para reintentar la registración en la bodega si falló
+  Future<void> _retryBodegaRegistration(Map<String, dynamic> pedido) async {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 20,
+              height: 20,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            const SizedBox(width: 12),
+            const Text('Reintentando registro en bodega...'),
+          ],
+        ),
+        duration: const Duration(seconds: 10),
+        backgroundColor: Colors.blue[700],
+      ),
+    );
+
+    try {
+      final result = await PaymentService.verifyAndRetryBodegaTransaction(
+        pedidoId: pedido['id'],
+        codigoPedido: pedido['codigo_pedido'],
+        proveedor: pedido['proveedor'],
+        monto: pedido['total'],
+        metodoPago: 'Transferencia Bancaria',
+      );
+
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (result['success']) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('¡Transacción registrada correctamente en bodega!'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error al reintentar: ${result['message']}'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error al reintentar: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
 
   Future<void> _cancelOrder(int pedidoId) async {
     showDialog(
